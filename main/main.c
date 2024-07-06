@@ -7,6 +7,7 @@
 #include "lvgl_helpers.h"
  
 #include "demos/lv_demos.h"
+#include "ui.h"
  
  
 #define TAG "main"
@@ -65,7 +66,8 @@ void app_main(void)
     // lvgl demo演示
     // lv_demo_music();
     // lv_demo_stress();
-    lv_demo_widgets(); 
+    // lv_demo_widgets(); 
+    ui_init();
    
     while (1)
     {

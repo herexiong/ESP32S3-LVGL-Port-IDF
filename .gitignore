@@ -3,3 +3,6 @@
 
 # Ignore the build folder
 build/
+
+# 未完成品
+doc/lvgl架构及运行顺序
