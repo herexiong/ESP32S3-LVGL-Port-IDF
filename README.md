@@ -14,3 +14,4 @@
 随工程有移植以及优化教程文章,在doc目录下  
 [lvgl移植](https://github.com/herexiong/ESP32S3-LVGL-Port-IDF/blob/main/doc/lvgl%E7%A7%BB%E6%A4%8D/lvgl.md)  
 [LVGL帧率优化](https://github.com/herexiong/ESP32S3-LVGL-Port-IDF/blob/main/doc/lvgl%E5%B8%A7%E7%8E%87%E4%BC%98%E5%8C%96/lvgl%E5%B8%A7%E7%8E%87%E4%BC%98%E5%8C%96.md)  
+[使用Squareline并移植到ESP32](https://github.com/herexiong/ESP32S3-LVGL-Port-IDF/blob/main/doc/%E4%BD%BF%E7%94%A8Squareline%E5%B9%B6%E7%A7%BB%E6%A4%8D%E5%88%B0ESP32/%E4%BD%BF%E7%94%A8Squareline%E5%B9%B6%E7%A7%BB%E6%A4%8D%E5%88%B0ESP32.md)
