@@ -1,9 +1,5 @@
-/**
- * @file STMPE610.h
- */
-
-#ifndef FT81X_TOUCH__H
-#define FT81X_TOUCH__H
+#ifndef LV_PORT_FS_TEMPL_H
+#define LV_PORT_FS_TEMPL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,19 +8,20 @@ extern "C" {
 /*********************
  *      INCLUDES
  *********************/
-
-#include <stdint.h>
-#include <stdbool.h>
-#ifdef LV_LVGL_H_INCLUDE_SIMPLE
-#include "lvgl.h"
-#else
 #include "lvgl/lvgl.h"
-#endif
-
+#include <string.h>
+#include <sys/unistd.h>
+#include <sys/stat.h>
+#include "sdmmc_cmd.h"
+#include "esp_vfs_fat.h"
+#include "driver/sdmmc_host.h"
+#include "driver/spi_common.h"
+#include "esp_err.h"
 /*********************
  *      DEFINES
  *********************/
-
+#define LV_FS_PATH "/storage" /*Projet root*/
+#define SDMMC 1
 /**********************
  *      TYPEDEFS
  **********************/
@@ -32,15 +29,14 @@ extern "C" {
 /**********************
  * GLOBAL PROTOTYPES
  **********************/
-;
-bool FT81x_read(lv_indev_drv_t * drv, lv_indev_data_t * data);
+void lv_port_fs_init(void);
 
 /**********************
  *      MACROS
  **********************/
 
 #ifdef __cplusplus
-} /* extern "C" */
+} /*extern "C"*/
 #endif
 
-#endif /* FT81X_TOUCH__H */
+#endif /*LV_PORT_FS_TEMPL_H*/
