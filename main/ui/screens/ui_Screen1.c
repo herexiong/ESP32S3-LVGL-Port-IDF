@@ -5,6 +5,7 @@
 
 #include "../ui.h"
 
+
 void ui_Screen1_screen_init(void)
 {
     ui_Screen1 = lv_obj_create(NULL);
@@ -91,5 +92,12 @@ void ui_Screen1_screen_init(void)
     lv_obj_add_event_cb(ui_TextArea2, ui_event_TextArea2, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Keyboard2, ui_event_Keyboard2, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Switch1, ui_event_Switch1, LV_EVENT_ALL, NULL);
+
+    //创建一个IMG对象并加载SD卡中的jpg图片解码显示
+	lv_obj_t * objpg =  lv_img_create(ui_Screen1);				// 创建一个IMG对象 
+	lv_img_set_src(objpg, "P:/image/test_jpg.jpg");					// 加载SD卡中的JPG图片
+    lv_obj_set_x(objpg, 47);
+    lv_obj_set_y(objpg, -15);
+	lv_obj_set_align(objpg,LV_ALIGN_CENTER);			// 重新设置对齐
 
 }
