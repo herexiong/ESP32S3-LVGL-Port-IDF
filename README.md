@@ -1,17 +1,17 @@
 # LVGL移植
 ## 环境要求
-+ ESP-IDF 4.4.7  
++ ESP-IDF 4.4.6  
 + ESP32S3 N16R8
-+ ST7796 SPI显示器,分辨率为320*480
-+ GT911电容触摸芯片
-+ LVGL 8.3
-+ lvgl_esp32_drivers  
++ ST7796 显示器,分辨率为320*480
++ GT911电容触摸
++ LVGL V8.3
 ---  
 本仓库是将LVGL到ESP32S3上，使用的开发环境是ESP-IDF 4.4.7，理论上4.4的版本应该都可以使用  
 使用维可思的3.5寸TFT电容开发板  
 
 # 博客
 随工程有移植以及优化教程文章,在doc目录下  
-[lvgl移植](https://github.com/herexiong/ESP32S3-LVGL-Port-IDF/blob/main/doc/lvgl%E7%A7%BB%E6%A4%8D/lvgl.md)  
-[LVGL帧率优化](https://github.com/herexiong/ESP32S3-LVGL-Port-IDF/blob/main/doc/lvgl%E5%B8%A7%E7%8E%87%E4%BC%98%E5%8C%96/lvgl%E5%B8%A7%E7%8E%87%E4%BC%98%E5%8C%96.md)  
-[使用Squareline并移植到ESP32](https://github.com/herexiong/ESP32S3-LVGL-Port-IDF/blob/main/doc/%E4%BD%BF%E7%94%A8Squareline%E5%B9%B6%E7%A7%BB%E6%A4%8D%E5%88%B0ESP32/%E4%BD%BF%E7%94%A8Squareline%E5%B9%B6%E7%A7%BB%E6%A4%8D%E5%88%B0ESP32.md)
+[lvgl移植](./doc/lvgl移植/lvgl.md)  
+[LVGL帧率优化](./doc/lvgl帧率优化/lvgl帧率优化.md)  
+[使用Squareline并移植到ESP32](./doc/使用Squareline并移植到ESP32/使用Squareline并移植到ESP32.md)  
+[LVGL使用8080串口驱动屏幕，使用SD卡读取多媒体](./doc/LVGL使用8080串口驱动屏幕，并使用SD卡/LVGL使用8080串口驱动屏幕，并使用SD卡.md)  
