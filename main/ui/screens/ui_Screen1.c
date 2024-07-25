@@ -5,7 +5,6 @@
 
 #include "../ui.h"
 
-
 void ui_Screen1_screen_init(void)
 {
     ui_Screen1 = lv_obj_create(NULL);
@@ -93,11 +92,19 @@ void ui_Screen1_screen_init(void)
     lv_obj_add_event_cb(ui_Keyboard2, ui_event_Keyboard2, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Switch1, ui_event_Switch1, LV_EVENT_ALL, NULL);
 
-    //创建一个IMG对象并加载SD卡中的jpg图片解码显示
-	lv_obj_t * objpg =  lv_img_create(ui_Screen1);				// 创建一个IMG对象 
-	lv_img_set_src(objpg, "P:/image/test_jpg.jpg");					// 加载SD卡中的JPG图片
+    //创建一个IMG对象并加载SD卡中的图片解码显示,已经在ui_Switch1回调函数内做了切换图片选项
+	objpg =  lv_img_create(ui_Screen1);				        // 创建一个IMG对象 
+	// lv_img_set_src(objpg, SD_PATH"/image/test_jpg.jpg");			// 加载SD卡中的JPG图片
+    lv_img_set_src(objpg, SD_PATH"/image/test_png.png");	// 加载SD卡中的PNG图片
     lv_obj_set_x(objpg, 47);
     lv_obj_set_y(objpg, -15);
-	lv_obj_set_align(objpg,LV_ALIGN_CENTER);			// 重新设置对齐
+	lv_obj_set_align(objpg,LV_ALIGN_CENTER);			    // 重新设置对齐
+
+    //创建一个IMG对象并加载SD卡中的图片解码显示
+    lv_obj_t * img = lv_gif_create(ui_Screen1);
+    lv_gif_set_src(img, SD_PATH"/bulb.gif");
+    lv_obj_set_x(img, 47);
+    lv_obj_set_y(img, 80);
+	lv_obj_set_align(img,LV_ALIGN_CENTER);			// 重新设置对齐
 
 }

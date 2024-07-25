@@ -5,13 +5,10 @@
 #include "freertos/event_groups.h"
 #include "lvgl.h"
 
-#include "lv_port_fs.h"
-
-// #include "lvgl_helpers.h"
-
 //驱动
 #include "lv_port_disp.h"
 #include "lv_port_indev.h"
+#include "sd.h"
 
 //移植ui
 // #include "demos/lv_demos.h"
@@ -27,17 +24,14 @@ void lv_tick_task(void *arg)
 static void lvgl_driver_init(){
     lv_port_disp_init();
     gt911_init(0x5D);
+    sd_init();//初始化SD卡，对接文件系统在menuconfig内
 } 
-
-// lv_disp_draw_buf_t disp_buf;
 
 void app_main(void)
 {
     lv_init();
     /* Initialize SPI or I2C bus used by the drivers */
     lvgl_driver_init();
-
-    lv_port_fs_init();    //初始化文件系统
 
     const esp_timer_create_args_t periodic_timer_args = {
         .callback = &lv_tick_task,

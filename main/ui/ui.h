@@ -9,7 +9,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+#include <stdio.h>
 #include "lvgl.h"
 
 #include "ui_helpers.h"
@@ -36,9 +36,9 @@ void ui_event_Switch1(lv_event_t * e);
 extern lv_obj_t * ui_Switch1;
 extern lv_obj_t * ui____initial_actions0;
 
+extern lv_obj_t * objpg;
 
-
-
+#define SD_PATH "/storage"
 
 
 

@@ -10,6 +10,7 @@
 void hide_keyboard_Animation(lv_obj_t * TargetObject, int delay);
 void show_keyboard_Animation(lv_obj_t * TargetObject, int delay);
 
+lv_obj_t * objpg;
 
 // SCREEN: ui_Screen1
 void ui_Screen1_screen_init(void);
@@ -135,6 +136,13 @@ void ui_event_Switch1(lv_event_t * e)
     lv_obj_t * target = lv_event_get_target(e);
     if(event_code == LV_EVENT_CLICKED) {
         _ui_checked_set_text_value(ui_Label2, target, "ON", "OFF");
+        printf("state:0x%x\n",lv_obj_get_state(target));
+        if (lv_obj_has_state(target, LV_STATE_CHECKED))
+        {
+            lv_img_set_src(objpg, SD_PATH"/image/test_jpg.jpg");// 加载SD卡中的JPG图片
+        }else{
+            lv_img_set_src(objpg, SD_PATH"/image/test_png.png");// 加载SD卡中的PNG图片
+        }
     }
 }
 

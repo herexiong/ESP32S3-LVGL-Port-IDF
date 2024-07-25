@@ -4,7 +4,7 @@
 #include "lvgl.h"
 #include "esp_log.h"
 #include "esp_err.h"
-//串口屏
+//8080
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_vendor.h"
 #include "esp_lcd_panel_ops.h"
