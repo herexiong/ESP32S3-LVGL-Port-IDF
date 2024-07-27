@@ -1,4 +1,5 @@
 # LVGL移植
+***已知BUG***：烧录后首次启动GT911触摸无法正常工作，需手动重启  
 ## 项目介绍
 本仓库是用于记录LVGL移植到ESP32S3上的过程，使用的开发环境是ESP-IDF 4.4.6以及LVGL V8.3，理论上4.4的版本应该都可以使用。
 从移植开始，本仓库已经实现了
@@ -30,3 +31,4 @@
 [2. LVGL帧率优化](./doc/lvgl帧率优化/lvgl帧率优化.md)  
 [3. 使用SquareLine并移植到ESP32](./doc/使用Squareline并移植到ESP32/使用Squareline并移植到ESP32.md)  
 [4. LVGL使用8080驱动屏幕，驱动SD卡对接至LVGL](./doc/LVGL使用8080串口驱动屏幕，并使用SD卡/LVGL使用8080驱动屏幕，驱动SD卡对接至LVGL%20%20.md)  
+[5. 使用LVGL解码显示媒体文件](./doc/使用LVGL解码显示媒体文件/使用LVGL解码显示媒体文件.md)  
