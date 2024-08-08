@@ -13,6 +13,41 @@
 ### LVGL I2C报错ERROR -1
     烧录后开发板自行复位出现，手动重启后消失 
 代码bug，已提 [issue](https://github.com/lvgl/lvgl_esp32_drivers/issues/237)  
+2024.08.08:已经修复[PR](https://github.com/lvgl/lvgl_esp32_drivers/issues/238)  
+说明[如下](###GT911驱动问题)
+
+### GT911驱动问题
+根据GT911的[数据手册](https://docs.espressif.com/projects/esp-dev-kits/zh_CN/latest/_static/esp32-s3-lcd-ev-board/datasheets/3.5_320x480/GT911_Datasheet_20130319.pdf)的第十页，GT911的I2C的地址是由上电时的INT和RST引脚电平变化实现的，因此需要在void gt911_init(uint8_t dev_addr)函数的开头调用相关设置函数void gt911_set_addr(uint8_t dev_addr)  
+```C
+// 触摸复位操作以便于设定IIC地址
+void gt911_set_addr(uint8_t dev_addr){
+//fix show error the first time
+		gpio_config_t io_conf;
+		io_conf.intr_type = GPIO_INTR_DISABLE;
+		io_conf.mode = GPIO_MODE_OUTPUT;
+		io_conf.pin_bit_mask = (1ULL << CONFIG_GT911_INT_PIN)|(1ULL << CONFIG_GT911_RST_PIN);
+		io_conf.pull_down_en = 0;
+		io_conf.pull_up_en = 0;
+		gpio_config(&io_conf);
+		gpio_pad_select_gpio(CONFIG_GT911_INT_PIN);
+		gpio_set_direction(CONFIG_GT911_INT_PIN, GPIO_MODE_OUTPUT);
+		gpio_pad_select_gpio(CONFIG_GT911_RST_PIN);
+		gpio_set_direction(CONFIG_GT911_RST_PIN, GPIO_MODE_OUTPUT);
+
+		// 设置引脚电平
+		gpio_set_level(CONFIG_GT911_INT_PIN, 0);
+		gpio_set_level(CONFIG_GT911_RST_PIN, 0);
+		vTaskDelay(pdMS_TO_TICKS(10));
+		gpio_set_level(CONFIG_GT911_INT_PIN, GT911_I2C_SLAVE_ADDR==0x29);
+		vTaskDelay(pdMS_TO_TICKS(1));
+		gpio_set_level(CONFIG_GT911_RST_PIN, 1);
+		vTaskDelay(pdMS_TO_TICKS(5));
+		gpio_set_level(CONFIG_GT911_INT_PIN, 0);
+		vTaskDelay(pdMS_TO_TICKS(50));
+		vTaskDelay(pdMS_TO_TICKS(50));
+}
+```
+
 ### LVLG DEMO启动后触摸没反应
 	出现于启动lv_demo_widgets();后，若以上问题都已解决，检查在main函数中是否注册了输入设备（触控板），以下是一个示例  
 ```C
@@ -21,40 +56,6 @@
 	indev_drv.read_cb = touch_driver_read;
 	indev_drv.type = LV_INDEV_TYPE_POINTER;
 	lv_indev_drv_register(&indev_drv);
-```
-### GT911驱动问题（网传，实际似乎没效果）
-	在 gt911.c 驱动文件的初始化函数中一开头调用函数 GT911_RST();
-```C
-// 触摸复位操作以便于设定IIC地址
-void GT911_RST()
-{
-    // 设置4号RTS和17号INT引脚为输出模式
-    gpio_set_direction(GT911_PIN_RST, GPIO_MODE_OUTPUT);
-    gpio_set_direction(GT911_PIN_INT, GPIO_MODE_OUTPUT);
-
-    // 低电平复位
-    gpio_set_level(GT911_PIN_RST, 0);
-    gpio_set_level(GT911_PIN_INT, 0);
-
-    vTaskDelay(pdMS_TO_TICKS(10));
-
-    if (GT911_I2C_SLAVE_ADDR == 0x5D)
-    {
-        vTaskDelay(pdMS_TO_TICKS(15));
-        gpio_set_level(GT911_PIN_RST, 1); // RTS拉高
-        vTaskDelay(pdMS_TO_TICKS(50));
-        gpio_set_direction(GT911_PIN_INT, (GPIO_MODE_INPUT) | (GPIO_MODE_DEF_OD)); // 将INT转为悬浮输入态
-    }
-    else if (GT911_I2C_SLAVE_ADDR == 0x14)
-    {
-        vTaskDelay(pdMS_TO_TICKS(5));
-        gpio_set_level(GT911_PIN_INT, 1);
-        vTaskDelay(pdMS_TO_TICKS(10));
-        gpio_set_level(GT911_PIN_RST, 1);// RTS拉高
-        vTaskDelay(pdMS_TO_TICKS(50));
-        gpio_set_direction(GT911_PIN_INT, (GPIO_MODE_INPUT) | (GPIO_MODE_DEF_OD)); // 将INT转为悬浮输入态
-    }
-}
 ```
 
 # 移植步骤
