@@ -7,21 +7,11 @@
 #include "driver/spi_common.h"
 #include "esp_err.h"
 
-#define TAG "SD"
-
-#define LV_FS_PATH "/storage" //文件系统挂载路径
+// #define LV_FS_PATH "/storage" //文件系统挂载路径
+#define LV_FS_PATH "/sdcard"
 
 #define SDMMC 1 			  //使用SDIO
 #define SDSPI 0
-#if SDMMC
-	#define CLK_IO 12
-	#define CMD_IO 11
-	#define D0_IO  13
-#else if SDSPI
-	#define CLK_IO  12
-	#define MOSI_IO 11
-	#define MISO_IO 13
-#endif
 
 sdmmc_card_t *card;
 

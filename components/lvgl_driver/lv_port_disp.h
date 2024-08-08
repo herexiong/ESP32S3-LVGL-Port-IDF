@@ -13,19 +13,6 @@
 #define EXAMPLE_LCD_PIXEL_CLOCK_HZ     (10 * 1000 * 1000)
 #define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL  0
 #define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL !EXAMPLE_LCD_BK_LIGHT_ON_LEVEL
-#define EXAMPLE_PIN_NUM_DATA0          1
-#define EXAMPLE_PIN_NUM_DATA1          2
-#define EXAMPLE_PIN_NUM_DATA2          7
-#define EXAMPLE_PIN_NUM_DATA3          8
-#define EXAMPLE_PIN_NUM_DATA4          3
-#define EXAMPLE_PIN_NUM_DATA5          18
-#define EXAMPLE_PIN_NUM_DATA6          17
-#define EXAMPLE_PIN_NUM_DATA7          16
-#define EXAMPLE_PIN_NUM_PCLK           15
-#define EXAMPLE_PIN_NUM_CS             10
-#define EXAMPLE_PIN_NUM_DC             9
-#define EXAMPLE_PIN_NUM_RST            14
-#define EXAMPLE_PIN_NUM_BK_LIGHT       4
 
 // The pixel number in horizontal and vertical
 #define EXAMPLE_LCD_H_RES              320

@@ -38,7 +38,8 @@ extern lv_obj_t * ui____initial_actions0;
 
 extern lv_obj_t * objpg;
 
-#define SD_PATH "/storage"
+// #define SD_PATH "/storage"
+#define SD_PATH "/sdcard"
 
 
 

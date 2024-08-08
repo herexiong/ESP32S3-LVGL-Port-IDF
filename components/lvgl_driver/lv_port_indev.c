@@ -1,4 +1,5 @@
 #include "lv_port_indev.h"
+#include "dev_board.h"
 
 #define TAG "GT911"
 
@@ -62,6 +63,33 @@ esp_err_t lvgl_i2c_unlock(i2c_port_t port) {
 	I2C_PORT_CHECK(port, ESP_FAIL);
 	ESP_LOGV(TAG, "Mutex lock removed for %d.", (int)port);
 	return (xSemaphoreGive(lvgl_i2c_mutex[port]) == pdTRUE) ? ESP_OK : ESP_FAIL;
+}
+
+void gt911_set_addr(uint8_t dev_addr){
+//fix show error the first time
+		gpio_config_t io_conf;
+		io_conf.intr_type = GPIO_INTR_DISABLE;
+		io_conf.mode = GPIO_MODE_OUTPUT;
+		io_conf.pin_bit_mask = (1ULL << CONFIG_GT911_INT_PIN)|(1ULL << CONFIG_GT911_RST_PIN);
+		io_conf.pull_down_en = 0;
+		io_conf.pull_up_en = 0;
+		gpio_config(&io_conf);
+		gpio_pad_select_gpio(CONFIG_GT911_INT_PIN);
+		gpio_set_direction(CONFIG_GT911_INT_PIN, GPIO_MODE_OUTPUT);
+		gpio_pad_select_gpio(CONFIG_GT911_RST_PIN);
+		gpio_set_direction(CONFIG_GT911_RST_PIN, GPIO_MODE_OUTPUT);
+
+		// 设置引脚电平
+		gpio_set_level(CONFIG_GT911_INT_PIN, 0);
+		gpio_set_level(CONFIG_GT911_RST_PIN, 0);
+		vTaskDelay(pdMS_TO_TICKS(10));
+		gpio_set_level(CONFIG_GT911_INT_PIN, GT911_I2C_SLAVE_ADDR==0x29);
+		vTaskDelay(pdMS_TO_TICKS(1));
+		gpio_set_level(CONFIG_GT911_RST_PIN, 1);
+		vTaskDelay(pdMS_TO_TICKS(5));
+		gpio_set_level(CONFIG_GT911_INT_PIN, 0);
+		vTaskDelay(pdMS_TO_TICKS(50));
+		vTaskDelay(pdMS_TO_TICKS(50));
 }
 
 esp_err_t lvgl_i2c_init(int port) {
@@ -252,7 +280,7 @@ void gt911_init(uint8_t dev_addr) {
         gt911_status.i2c_dev_addr = dev_addr;
         uint8_t data_buf;
         esp_err_t ret;
-
+		gt911_set_addr(dev_addr);//fix show error the first time
         ESP_LOGI(TAG, "Checking for GT911 Touch Controller");
         if ((ret = gt911_i2c_read(dev_addr, GT911_PRODUCT_ID1, &data_buf, 1) != ESP_OK)) {
             ESP_LOGE(TAG, "Error reading from device: %s",

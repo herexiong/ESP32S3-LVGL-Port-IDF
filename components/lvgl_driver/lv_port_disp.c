@@ -1,4 +1,5 @@
 #include "lv_port_disp.h"
+#include "dev_board.h"
 
 #define TAG "disp_driver"
 
@@ -22,36 +23,37 @@ static void example_lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_
     esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, color_map);
 }
 
+lv_disp_drv_t disp_drv;      // contains callback functions
+lv_color_t *buf1[DISP_BUF_SIZE];
+lv_color_t *buf2[DISP_BUF_SIZE];
+
 void lv_port_disp_init(void){
     //////8080串口屏初始化
-    static lv_disp_drv_t disp_drv;      // contains callback functions
-    
-    static lv_color_t *buf1[DISP_BUF_SIZE];
-    static lv_color_t *buf2[DISP_BUF_SIZE];
+
     lv_disp_draw_buf_init(&disp_buf, buf1, buf2, DISP_BUF_SIZE);
 
     ESP_LOGI(TAG, "Turn off LCD backlight");
     gpio_config_t bk_gpio_config = {
         .mode = GPIO_MODE_OUTPUT,
-        .pin_bit_mask = 1ULL << EXAMPLE_PIN_NUM_BK_LIGHT
+        .pin_bit_mask = 1ULL << SCREEN_PIN_NUM_BK_LIGHT
     };
     ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
-    gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL);
+    gpio_set_level(SCREEN_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL);
 
     ESP_LOGI(TAG, "Initialize Intel 8080 bus");
     esp_lcd_i80_bus_handle_t i80_bus = NULL;
     esp_lcd_i80_bus_config_t bus_config = {
-        .dc_gpio_num = EXAMPLE_PIN_NUM_DC,
-        .wr_gpio_num = EXAMPLE_PIN_NUM_PCLK,
+        .dc_gpio_num = SCREEN_PIN_NUM_DC,
+        .wr_gpio_num = SCREEN_PIN_NUM_PCLK,
         .data_gpio_nums = {
-            EXAMPLE_PIN_NUM_DATA0,
-            EXAMPLE_PIN_NUM_DATA1,
-            EXAMPLE_PIN_NUM_DATA2,
-            EXAMPLE_PIN_NUM_DATA3,
-            EXAMPLE_PIN_NUM_DATA4,
-            EXAMPLE_PIN_NUM_DATA5,
-            EXAMPLE_PIN_NUM_DATA6,
-            EXAMPLE_PIN_NUM_DATA7,
+            SCREEN_PIN_NUM_DATA0,
+            SCREEN_PIN_NUM_DATA1,
+            SCREEN_PIN_NUM_DATA2,
+            SCREEN_PIN_NUM_DATA3,
+            SCREEN_PIN_NUM_DATA4,
+            SCREEN_PIN_NUM_DATA5,
+            SCREEN_PIN_NUM_DATA6,
+            SCREEN_PIN_NUM_DATA7,
         },
         .bus_width = 8,
         .max_transfer_bytes = EXAMPLE_LCD_H_RES * 40 * sizeof(uint16_t)
@@ -59,7 +61,7 @@ void lv_port_disp_init(void){
     ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &i80_bus));
     esp_lcd_panel_io_handle_t io_handle = NULL;
     esp_lcd_panel_io_i80_config_t io_config = {
-        .cs_gpio_num = EXAMPLE_PIN_NUM_CS,
+        .cs_gpio_num = SCREEN_PIN_NUM_CS,
         .pclk_hz = EXAMPLE_LCD_PIXEL_CLOCK_HZ,
         .trans_queue_depth = 10,
         .dc_levels = {
@@ -78,7 +80,7 @@ void lv_port_disp_init(void){
     ESP_LOGI(TAG, "Install LCD driver of st7789");
     esp_lcd_panel_handle_t panel_handle = NULL;
     esp_lcd_panel_dev_config_t panel_config = {
-        .reset_gpio_num = EXAMPLE_PIN_NUM_RST,
+        .reset_gpio_num = SCREEN_PIN_NUM_RST,
         .color_space = ESP_LCD_COLOR_SPACE_RGB,
         .bits_per_pixel = 16,
     };
@@ -92,7 +94,7 @@ void lv_port_disp_init(void){
     // esp_lcd_panel_set_gap(panel_handle, 0, 20);
 
     ESP_LOGI(TAG, "Turn on LCD backlight");
-    gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL);
+    gpio_set_level(SCREEN_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL);
     //////
     //修改为全屏双缓存
 

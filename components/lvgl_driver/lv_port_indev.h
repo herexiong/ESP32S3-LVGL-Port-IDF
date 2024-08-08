@@ -8,22 +8,29 @@
 #include "freertos/task.h"
 #include <driver/i2c.h>
 #include "lvgl.h"
+
 ////////////////////////////////////////////
-#define CONFIG_GT911_I2C_TOUCH_PORT 0
-#define I2C_ZERO 					I2C_NUM_0
+#define CONFIG_GT911_I2C_TOUCH_PORT 0 //使用到的I2C PORT
+#define I2C_ZERO I2C_NUM_0
 #define CONFIG_I2C_MANAGER_0_ENABLED 1
+
+// #define I2C_ONE I2C_NUM_1
+// #define CONFIG_I2C_MANAGER_1_ENABLED 0
 
 //触摸颠倒 ToDo->和屏幕定义一起自动处理
 // #define CONFIG_LV_GT911_SWAPXY 1
 #define CONFIG_LV_GT911_INVERT_X 1
 #define CONFIG_LV_GT911_INVERT_Y 1
 
-#define CONFIG_I2C_MANAGER_0_SDA 42
-#define CONFIG_I2C_MANAGER_0_SCL 41
 #define CONFIG_I2C_MANAGER_0_FREQ_HZ 400000
 #define CONFIG_I2C_MANAGER_0_TIMEOUT 20
 #define CONFIG_I2C_MANAGER_0_LOCK_TIMEOUT 50
 #define CONFIG_I2C_MANAGER_0_PULLUPS y
+
+#define CONFIG_I2C_MANAGER_1_FREQ_HZ 400000
+#define CONFIG_I2C_MANAGER_1_TIMEOUT 20
+#define CONFIG_I2C_MANAGER_1_LOCK_TIMEOUT 50
+#define CONFIG_I2C_MANAGER_1_PULLUPS y
 
 #if defined (I2C_NUM_0) && defined (CONFIG_I2C_MANAGER_0_ENABLED)
 	#define I2C_ZERO 					I2C_NUM_0
@@ -35,6 +42,18 @@
 
 	#define I2C_MANAGER_0_TIMEOUT 		( CONFIG_I2C_MANAGER_0_TIMEOUT / portTICK_RATE_MS )
 	#define I2C_MANAGER_0_LOCK_TIMEOUT	( CONFIG_I2C_MANAGER_0_LOCK_TIMEOUT / portTICK_RATE_MS )
+#endif
+
+#if defined (I2C_NUM_1) && defined (CONFIG_I2C_MANAGER_1_ENABLED)
+	#define I2C_ONE 					I2C_NUM_1
+	#if defined (CONFIG_I2C_MANAGER_1_PULLUPS)
+		#define I2C_MANAGER_1_PULLUPS 	true
+	#else
+		#define I2C_MANAGER_1_PULLUPS 	false
+	#endif
+
+	#define I2C_MANAGER_1_TIMEOUT 		( CONFIG_I2C_MANAGER_1_TIMEOUT / portTICK_RATE_MS )
+	#define I2C_MANAGER_1_LOCK_TIMEOUT	( CONFIG_I2C_MANAGER_0_LOCK_TIMEOUT / portTICK_RATE_MS )
 #endif
 
 #define ERROR_PORT(port, fail) { \
