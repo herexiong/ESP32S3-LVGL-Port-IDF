@@ -1,5 +1,5 @@
 # LVGL移植
-***已知BUG***：烧录后首次启动GT911触摸无法正常工作，需手动重启  
+***开始前请将本工程resource目录下的所有内容拷贝到sd卡中***  
 ## 项目介绍
 本仓库是用于记录LVGL移植到ESP32S3上的过程，使用的开发环境是ESP-IDF 4.4.6以及LVGL V8.3，理论上4.4的版本应该都可以使用。
 从移植开始，本仓库已经实现了
@@ -10,6 +10,8 @@
 + 将SquareLine设计的UI界面移植到单片机中
 + SPI，SDIO驱动SD卡，并对接至LVGL中的文件系统
 + LVGL解码JPG，PNG，GIF多媒体文件
++ 修复[lvgl_esp32_drivers](https://github.com/lvgl/lvgl_esp32_drivers/pull/238)项目中的GT911返回-1的bug
++ 使用ESP-ADF组件播放SD卡中的MP3音频文件(MAX98357模块)
 
 本项目使用的使用维可思的3.5寸320*480 TFT电容开发板  
 
@@ -22,8 +24,11 @@
 + ST7796 显示器,分辨率为320*480
 + GT911电容触摸
 + LVGL V8.3
++ MAX98357模块(音频部分需要)
 
 ## 引脚设置
+引脚的相关设置在main文件夹下的board.h中定义  
+未来尝试和外设封装在一起做成版级驱动（画饼）
 __引脚号__ | __用途__|__备注__
 ----------|---------|-------
 11|SD_CMD_IO<br>SD_MOSI_IO|上拉
@@ -71,3 +76,4 @@ __引脚号__ | __用途__|__备注__
 [3. 使用SquareLine并移植到ESP32](./doc/使用Squareline并移植到ESP32/使用Squareline并移植到ESP32.md)  
 [4. LVGL使用8080驱动屏幕，驱动SD卡对接至LVGL](./doc/LVGL使用8080串口驱动屏幕，并使用SD卡/LVGL使用8080驱动屏幕，驱动SD卡对接至LVGL%20%20.md)  
 [5. 使用LVGL解码显示媒体文件](./doc/使用LVGL解码显示媒体文件/使用LVGL解码显示媒体文件.md)  
+[6. 使用ESP-ADF播放MP3音频](./doc/使用ESP-ADF播放MP3音频/音频处理.md)
