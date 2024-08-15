@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<!-- saved from url=(0088)https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E7%94%9F%E6%88%90%E5%AD%97%E4%BD%93 -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noodp">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge, chrome=1">
+        <title>将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说</title><meta name="Description" content="分享我的科技之旅"><meta property="og:title" content="将LVGL的中文字体编译为文件写入Flash中并读取">
+<meta property="og:description" content="LVGL的字体系统提供了包括抗锯齿在内的许多高级功能，但字体的尺寸也变得非常大，会为下载带来不小的困难。本文介绍一种方法，将LVGL官方的字体转换工具生成的.c字体文件，转换为可以烧录到Flash中的.bin文件，并在EPS32平台上读取的方法。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/"><meta property="og:image" content="https://yuanze.wang/logo.png"><meta property="article:section" content="posts">
+<meta property="article:published_time" content="2022-01-23T00:00:00+00:00">
+<meta property="article:modified_time" content="2022-01-23T00:00:00+00:00">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://yuanze.wang/logo.png">
+
+<meta name="twitter:title" content="将LVGL的中文字体编译为文件写入Flash中并读取">
+<meta name="twitter:description" content="LVGL的字体系统提供了包括抗锯齿在内的许多高级功能，但字体的尺寸也变得非常大，会为下载带来不小的困难。本文介绍一种方法，将LVGL官方的字体转换工具生成的.c字体文件，转换为可以烧录到Flash中的.bin文件，并在EPS32平台上读取的方法。">
+<meta name="application-name" content="远处有泽细细说">
+<meta name="apple-mobile-web-app-title" content="远处有泽细细说"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="https://yuanze.wang/favicon.ico">
+        <link rel="icon" type="image/png" sizes="32x32" href="https://yuanze.wang/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="https://yuanze.wang/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="https://yuanze.wang/apple-touch-icon.png"><link rel="mask-icon" href="https://yuanze.wang/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="https://yuanze.wang/site.webmanifest"><link rel="canonical" href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/"><link rel="prev" href="https://yuanze.wang/posts/lvgl-on-esp32s3/"><link rel="next" href="https://yuanze.wang/posts/esp32-unzip-gzip-http-response/"><link rel="stylesheet" href="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/normalize.min.css"><link rel="stylesheet" href="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/style.min.css"><link rel="stylesheet" href="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/all.min.css"><link rel="stylesheet" href="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/animate.min.css"><script src="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/hm.js.下载"></script><script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "BlogPosting",
+        "headline": "将LVGL的中文字体编译为文件写入Flash中并读取",
+        "inLanguage": "zh-CN",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "https:\/\/yuanze.wang\/posts\/lvgl-chinese-font-in-bin\/"
+        },"genre": "posts","keywords": "ESP32, LVGL","wordcount":  5875 ,
+        "url": "https:\/\/yuanze.wang\/posts\/lvgl-chinese-font-in-bin\/","datePublished": "2022-01-23T00:00:00+00:00","dateModified": "2022-01-23T00:00:00+00:00","publisher": {
+            "@type": "Organization",
+            "name": ""},"author": {
+                "@type": "Person",
+                "name": "王远泽"
+            },"description": ""
+    }
+    </script></head>
+    <body header-desktop="fixed" header-mobile="auto"><script type="text/javascript">(window.localStorage && localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : ('auto' === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : 'auto' === 'dark')) && document.body.setAttribute('theme', 'dark');</script>
+
+        <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
+    <div class="header-wrapper">
+        <div class="header-title">
+            <a href="https://yuanze.wang/" title="远处有泽细细说">远<span class="chu">处</span><span class="you">有</span>泽细细说</a>
+        </div>
+        <div class="menu">
+            <div class="menu-inner"><a class="menu-item" href="https://yuanze.wang/posts/"> 技术文章 </a><a class="menu-item" href="https://yuanze.wang/categories/"> 分类 </a><a class="menu-item" href="https://yuanze.wang/tags/"> 标签 </a><a class="menu-item" href="https://yuanze.wang/essays/"> 随笔 </a><a class="menu-item" href="https://yuanze.wang/about/"> 关于 </a><span class="menu-item delimiter"></span><span class="menu-item search" id="search-desktop">
+                        <span class="algolia-autocomplete" style="position: relative; display: inline-block; direction: ltr;"><input type="text" placeholder="搜索文章标题或内容..." id="search-input-desktop" class="input" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-owns="algolia-autocomplete-listbox-0" dir="auto" style="position: relative; vertical-align: top;"><pre aria-hidden="true" style="position: absolute; visibility: hidden; white-space: pre; font-family: -apple-system, BlinkMacSystemFont, &quot;PingFang SC&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Segoe UI&quot;, Roboto, Oxygen, Ubuntu, Cantarell, &quot;Fira Sans&quot;, &quot;Droid Sans&quot;, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif; font-size: 16px; font-style: normal; font-variant: normal; font-weight: 400; word-spacing: 0px; letter-spacing: normal; text-indent: 0px; text-rendering: auto; text-transform: none;"></pre></span>
+                        <a href="javascript:void(0);" class="search-button search-toggle" id="search-toggle-desktop" title="搜索">
+                            <i class="fas fa-search fa-fw"></i>
+                        </a>
+                        <a href="javascript:void(0);" class="search-button search-clear" id="search-clear-desktop" title="清空">
+                            <i class="fas fa-times-circle fa-fw"></i>
+                        </a>
+                        <span class="search-button search-loading" id="search-loading-desktop">
+                            <i class="fas fa-spinner fa-fw fa-spin"></i>
+                        </span>
+                    </span><a class="menu-item" href="https://github.com/wangyz1997" title="GitHub" rel="noopener noreffer" target="_blank"><i class="fab fa-github fa-fw"></i>  </a><a href="javascript:void(0);" class="menu-item theme-switch" title="切换主题">
+                    <i class="fas fa-adjust fa-fw"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</header><header class="mobile animated fadeInDown faster" id="header-mobile">
+    <div class="header-container">
+        <div class="header-wrapper">
+            <div class="header-title">
+                <a href="https://yuanze.wang/" title="远处有泽细细说">远<span class="chu">处</span><span class="you">有</span>泽细细说</a>
+            </div>
+            <div class="menu-toggle" id="menu-toggle-mobile">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+        <div class="menu" id="menu-mobile"><div class="search-wrapper">
+                    <div class="search mobile" id="search-mobile">
+                        <input type="text" placeholder="搜索文章标题或内容..." id="search-input-mobile">
+                        <a href="javascript:void(0);" class="search-button search-toggle" id="search-toggle-mobile" title="搜索">
+                            <i class="fas fa-search fa-fw"></i>
+                        </a>
+                        <a href="javascript:void(0);" class="search-button search-clear" id="search-clear-mobile" title="清空">
+                            <i class="fas fa-times-circle fa-fw"></i>
+                        </a>
+                        <span class="search-button search-loading" id="search-loading-mobile">
+                            <i class="fas fa-spinner fa-fw fa-spin"></i>
+                        </span>
+                    </div>
+                    <a href="javascript:void(0);" class="search-cancel" id="search-cancel-mobile">
+                        取消
+                    </a>
+                </div><a class="menu-item" href="https://yuanze.wang/posts/" title="">技术文章</a><a class="menu-item" href="https://yuanze.wang/categories/" title="">分类</a><a class="menu-item" href="https://yuanze.wang/tags/" title="">标签</a><a class="menu-item" href="https://yuanze.wang/essays/" title="">随笔</a><a class="menu-item" href="https://yuanze.wang/about/" title="">关于</a><a class="menu-item" href="https://github.com/wangyz1997" title="GitHub" rel="noopener noreffer" target="_blank"><i class="fab fa-github fa-fw"></i>  </a><a href="javascript:void(0);" class="menu-item theme-switch" title="切换主题">
+                <i class="fas fa-adjust fa-fw"></i>
+            </a></div>
+    </div>
+</header>
+<div class="search-dropdown desktop">
+    <div id="search-dropdown-desktop" style="position: relative;"><span class="dropdown-menu" role="listbox" id="algolia-autocomplete-listbox-0" style="position: absolute; z-index: 100; display: none; top: 0px; left: 0px; right: auto;"><div class="dataset-search"></div></span></div>
+</div>
+<div class="search-dropdown mobile">
+    <div id="search-dropdown-mobile"></div>
+</div>
+<main class="main">
+                <div class="container"><div class="toc" id="toc-auto" style="left: 1420.8px; max-width: 580.8px; visibility: visible; position: absolute; top: 160px;">
+            <h2 class="toc-title">目录</h2>
+            <div class="toc-content" id="toc-content-auto"><nav id="TableOfContents">
+  <ul>
+    <li class="has-active"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#lvgl%E5%AF%B9%E5%AD%97%E4%BD%93%E7%9A%84%E6%94%AF%E6%8C%81%E6%83%85%E5%86%B5" class="active">LVGL对字体的支持情况</a>
+      <ul>
+        <li class=""><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#c%E6%A0%BC%E5%BC%8F%E5%AD%97%E4%BD%93" class=""><code>.c</code>格式字体</a></li>
+        <li class=""><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#bin%E6%A0%BC%E5%BC%8F%E5%AD%97%E4%BD%93" class=""><code>.bin</code>格式字体</a></li>
+        <li class=""><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E5%AD%97%E4%BD%93%E6%A0%BC%E5%BC%8F%E9%80%89%E6%8B%A9" class="">字体格式选择</a></li>
+      </ul>
+    </li>
+    <li class=""><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E7%94%9F%E6%88%90%E5%AD%97%E4%BD%93" class="">生成字体</a>
+      <ul>
+        <li class=""><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E5%AE%89%E8%A3%85nodejs" class="">安装<code>Node.js</code></a></li>
+        <li class=""><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E5%AE%89%E8%A3%85lv_font_conv" class="">安装<code>lv_font_conv</code></a></li>
+        <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E4%BD%BF%E7%94%A8lv_font_conv%E7%94%9F%E6%88%90%E5%AD%97%E4%BD%93">使用<code>lv_font_conv</code>生成字体</a></li>
+      </ul>
+    </li>
+    <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E4%BD%BF%E7%94%A8esp32%E6%98%BE%E7%A4%BA%E5%AD%97%E4%BD%93">使用ESP32显示字体</a>
+      <ul>
+        <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E5%AF%B9%E6%BA%90%E6%96%87%E4%BB%B6%E7%9A%84%E5%A4%84%E7%90%86">对源文件的处理</a></li>
+        <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E7%BC%96%E8%AF%91%E7%94%9F%E6%88%90%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%96%87%E4%BB%B6">编译生成二进制文件</a>
+          <ul>
+            <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E7%BC%96%E8%AF%91">编译</a></li>
+            <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E9%93%BE%E6%8E%A5">链接</a></li>
+            <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E7%94%9F%E6%88%90bin%E6%96%87%E4%BB%B6">生成bin文件</a></li>
+            <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E6%9F%A5%E7%9C%8B%E6%96%87%E4%BB%B6%E5%86%85%E5%81%8F%E7%A7%BB">查看文件内偏移</a></li>
+          </ul>
+        </li>
+        <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E5%B0%86%E5%AD%97%E4%BD%93%E6%94%BE%E5%85%A5esp32%E7%9A%84flash%E4%B8%AD">将字体放入ESP32的Flash中</a>
+          <ul>
+            <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E7%83%A7%E5%85%A5flash">烧入Flash</a></li>
+          </ul>
+        </li>
+        <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E6%98%BE%E7%A4%BA%E5%AD%97%E4%BD%93">显示字体</a>
+          <ul>
+            <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E4%BF%AE%E6%94%B9%E5%AD%97%E4%BD%93%E6%BA%90%E7%A0%81">修改字体源码</a></li>
+            <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E6%98%A0%E5%B0%84flash%E5%B9%B6%E5%8A%A0%E8%BD%BD%E5%AD%97%E4%BD%93">映射Flash并加载字体</a></li>
+            <li><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E6%98%BE%E7%A4%BA%E6%95%88%E6%9E%9C">显示效果</a></li>
+          </ul>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</nav></div>
+        </div><article class="page single"><h1 class="single-title">将LVGL的中文字体编译为文件写入Flash中并读取</h1><div class="post-meta">
+            <div class="post-meta-line"><span class="post-category">收录于 <a href="https://yuanze.wang/categories/%E6%95%99%E7%A8%8B/"><i class="far fa-folder fa-fw"></i>教程</a></span></div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw"></i>&nbsp;<time datetime="2022年01月23日">2022年01月23日</time>&nbsp;<i class="fas fa-pencil-alt fa-fw"></i>&nbsp;约 5875 字&nbsp;</div>
+        </div><div class="details toc" id="toc-static" kept="">
+                <div class="details-summary toc-title">
+                    <span>目录</span>
+                    <span><i class="details-icon fas fa-angle-right"></i></span>
+                </div>
+                <div class="details-content toc-content" id="toc-content-static"></div>
+            </div><div class="content" id="content" lg-uid="lg0"><p>LVGL的字体系统提供了包括抗锯齿在内的许多高级功能，但字体的尺寸也变得非常大，会为下载带来不小的困难。本文介绍一种方法，将LVGL官方的字体转换工具生成的<code>.c</code>字体文件，转换为可以烧录到Flash中的<code>.bin</code>文件，并在EPS32平台上读取的方法。</p>
+<h1 id="lvgl对字体的支持情况" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#lvgl%E5%AF%B9%E5%AD%97%E4%BD%93%E7%9A%84%E6%94%AF%E6%8C%81%E6%83%85%E5%86%B5" class="header-mark"></a>LVGL对字体的支持情况</h1>
+<p>LVGL官方目前支持两种字体，一种是<code>.c</code>源文件形式的字体，另一种则是<code>.bin</code>格式的字体，这两种字体都可以通过官方提供的<a href="https://github.com/lvgl/lv_font_conv" target="_blank" rel="noopener noreffer">lv_font_conv</a>工具生成。关于工具的使用，下文也会有详细介绍。</p>
+<h2 id="c格式字体" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#c%E6%A0%BC%E5%BC%8F%E5%AD%97%E4%BD%93" class="header-mark"></a><code>.c</code>格式字体</h2>
+<p><code>.c</code>格式的字体可以在编译后直接跟随用户程序一同烧入MCU之中，并使用<code>lvgl</code>的原生接口读取并显示。<code>.c</code>格式的字体中，所有数据都是使用<code>lvgl</code>标准的数据结构定义的，因此程序可以直接通过寻址的方式读取这些字体，不需要进行任何其他的操作，开销较低，适合MCU平台使用。</p>
+<h2 id="bin格式字体" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#bin%E6%A0%BC%E5%BC%8F%E5%AD%97%E4%BD%93" class="header-mark"></a><code>.bin</code>格式字体</h2>
+<p><code>.bin</code>格式的字体则使用了与<code>lvgl</code>标准的结构体定义不同的<a href="https://github.com/lvgl/lv_font_conv/blob/master/doc/font_spec.md" target="_blank" rel="noopener noreffer">数据结构</a>进行存储。这样虽然可以缩小文件体积，但<code>lvgl</code>内部是无法直接读取<code>.bin</code>格式的字体的。<code>lvgl</code>的做法是通过载入函数，将<code>.bin</code>格式的文件，在内存中转换为与<code>.c</code>相同格式的数据结构，并使用<code>.c</code>格式的接口进行读取与显示。这种载入方式则更适合<code>Linux</code>等内存较大的平台。</p>
+<h2 id="字体格式选择" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E5%AD%97%E4%BD%93%E6%A0%BC%E5%BC%8F%E9%80%89%E6%8B%A9" class="header-mark"></a>字体格式选择</h2>
+<p>基于上述两种字体的特性，为了读取的便利性与运行性能，使用<code>.c</code>格式的字体是比较好的选择。但是<code>.c</code>格式的字体会为每次下载增加数M的数据大小，大大降低了调试时的体验。</p>
+<p>本文将介绍如何生成<code>.c</code>格式的字体，并将字体数据放入Flash中，避免反复下载。</p>
+<h1 id="生成字体" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E7%94%9F%E6%88%90%E5%AD%97%E4%BD%93" class="header-mark"></a>生成字体</h1>
+<p>生成字体需要使用<code>lvgl</code>官方推出的命令行工具<a href="https://github.com/lvgl/lv_font_conv" target="_blank" rel="noopener noreffer">lv_font_conv</a>，该工具使用<code>javascript</code>编写。</p>
+<h2 id="安装nodejs" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E5%AE%89%E8%A3%85nodejs" class="header-mark"></a>安装<code>Node.js</code></h2>
+<p>为了使用这个工具，首先要在本地安装<code>Node.js</code>解释器。您可以前往<a href="https://nodejs.org/zh-cn/" target="_blank" rel="noopener noreffer">官方网站</a>进行下载，选择最新的LTS版即可。</p>
+<h2 id="安装lv_font_conv" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E5%AE%89%E8%A3%85lv_font_conv" class="header-mark"></a>安装<code>lv_font_conv</code></h2>
+<p>安装完毕后，打开<code>Powershell</code>/<code>Git Bash</code>等命令行工具，输入</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-powershell"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="npm install lv_font_conv -g
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="n">npm</span> <span class="n">install</span> <span class="n">lv_font_conv</span> <span class="n">-g</span>
+</code></pre></td></tr></tbody></table></div></div></div><p>安装<code>lv_font_conv</code>工具。安装完毕后，在命令行直接输入<code>lv_font_conv</code>命令，若可以显示命令行帮助，则代表安装成功。</p>
+<h2 id="使用lv_font_conv生成字体" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E4%BD%BF%E7%94%A8lv_font_conv%E7%94%9F%E6%88%90%E5%AD%97%E4%BD%93" class="header-mark"></a>使用<code>lv_font_conv</code>生成字体</h2>
+<p>官方提供的<code>lv_font_conv</code>工具支持所有<code>lvgl</code>字体系统的高级特性，例如多像素抗锯齿、RGB次像素渲染、字体压缩等。</p>
+<p>打开你喜欢的终端并进入存放字体的目录中，本文均以<a href="https://developer.harmonyos.com/cn/docs/design/des-guides/font-0000001157868583" target="_blank" rel="noopener noreffer">HarmonyOS Sans字体</a>为例。假定字体文件的文件名为<code>HarmonyOS_Sans_SC_Regular.ttf</code>，输入下面的命令可以生成一个包含所有ASCII、汉字以及符号的<code>.c</code>格式字体文件。</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-powershell"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="lv_font_conv --bpp 4 --size 20 -o font_harmony_sans_20.c --format lvgl --no-kerning --no-prefilter --font HarmonyOS_Sans_SC_Regular.ttf --range 0x20-0xBF --range 0x3000-0x3011 --range 0x4E00-0x9FAF --range 0xFF00-0xFF64
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="n">lv_font_conv</span> <span class="p">-</span><span class="n">-bpp</span> <span class="n">4</span> <span class="p">-</span><span class="n">-size</span> <span class="n">20</span> <span class="n">-o</span> <span class="n">font_harmony_sans_20</span><span class="p">.</span><span class="n">c</span> <span class="p">-</span><span class="n">-format</span> <span class="n">lvgl</span> <span class="p">-</span><span class="n">-no-kerning</span> <span class="p">-</span><span class="n">-no-prefilter</span> <span class="p">-</span><span class="n">-font</span> <span class="n">HarmonyOS_Sans_SC_Regular</span><span class="p">.</span><span class="n">ttf</span> <span class="p">-</span><span class="n">-range</span> <span class="n">0x20</span><span class="p">-</span><span class="n">0xBF</span> <span class="p">-</span><span class="n">-range</span> <span class="n">0x3000</span><span class="p">-</span><span class="n">0x3011</span> <span class="p">-</span><span class="n">-range</span> <span class="n">0x4E00</span><span class="p">-</span><span class="n">0x9FAF</span> <span class="p">-</span><span class="n">-range</span> <span class="n">0xFF00</span><span class="p">-</span><span class="n">0xFF64</span>
+</code></pre></td></tr></tbody></table></div></div></div><p>其中，<code>--bpp</code>参数指定生成的字体中，1个显示像素使用多少字体像素。当此参数大于1时，代表启用灰度抗锯齿，字体的边缘将更加清晰，但是会占用更大的空间。为了显示效果，建议使用4像素抗锯齿。</p>
+<p><code>--size</code>参数指定生成字体的高度，可根据需要自行选择。</p>
+<p><code>--format</code>参数指定生成字体的格式，共有<code>lvgl</code>与<code>bin</code>两种格式可选，分别对应生成<code>.c</code>格式与<code>.bin</code>格式的字体。</p>
+<p><code>--no-kerning</code>参数用于关闭字体可变间距的功能。此功能在汉字显示过程中效果不明显，且会带来额外的查表时间并占用更多的存储空间，建议关闭。</p>
+<p><code>--font</code>参数用于指定使用的字体文件。其后所接的所有<code>--range</code>参数与<code>--symbols</code>参数均只对此字体起效，直到出现下一个<code>--font</code>参数之前。</p>
+<p><code>--range</code>参数用于指定要添加进入字体的<a href="https://www.ssec.wisc.edu/~tomw/java/unicode.html" target="_blank" rel="noopener noreffer">Unicode字符范围</a>，可以重复使用以指定多个范围。在本例中，<code>0x20-0xBF</code>包含所有ASCII字符与一些增补字符（例如<code>©</code>），<code>0x3000-0x3011</code>包含一些CJK括号（例如<code>《</code> <code>【</code>等），<code>0x4E00-0x9FAF</code>包含所有简体繁体与日文汉字，<code>0xFF00-0xFF64</code>包含全角英文数字与标点（例如<code>、</code> <code>０</code>）等。在此基础上，还可以根据需要自行添加或删除字体。下表包含了一些常用的Unicode字符范围。</p>
+<div class="table-wrapper"><table>
+<thead>
+<tr>
+<th style="text-align:center">编码范围</th>
+<th style="text-align:center">字符数量</th>
+<th style="text-align:center">编码内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">0x0020-0x007F</td>
+<td style="text-align:center">96</td>
+<td style="text-align:center">ASCII码</td>
+</tr>
+<tr>
+<td style="text-align:center">0x0080-0x00BF</td>
+<td style="text-align:center">64</td>
+<td style="text-align:center">ASCII码增补（<code>™</code> <code>©</code>）</td>
+</tr>
+<tr>
+<td style="text-align:center">0x2600-0x26FF</td>
+<td style="text-align:center">256</td>
+<td style="text-align:center">各种符号（<code>☆</code> <code>♂</code> <code>♫</code> <code> ♡</code>)</td>
+</tr>
+<tr>
+<td style="text-align:center">0x3000-0x301F</td>
+<td style="text-align:center">32</td>
+<td style="text-align:center">CJK符号（<code>《</code> <code>【</code>）</td>
+</tr>
+<tr>
+<td style="text-align:center">0x3040-0x309F</td>
+<td style="text-align:center">94</td>
+<td style="text-align:center">日文平假名</td>
+</tr>
+<tr>
+<td style="text-align:center">0x30A0-0x30FF</td>
+<td style="text-align:center">94</td>
+<td style="text-align:center">日文片假名</td>
+</tr>
+<tr>
+<td style="text-align:center">0x4E00-0x9FAF</td>
+<td style="text-align:center"><strong>20902</strong></td>
+<td style="text-align:center">所有简体、繁体、日文汉字</td>
+</tr>
+<tr>
+<td style="text-align:center">0xAC00-0xD7A3</td>
+<td style="text-align:center"><strong>11172</strong></td>
+<td style="text-align:center">韩文音节</td>
+</tr>
+<tr>
+<td style="text-align:center">0xFF00-0xFF64</td>
+<td style="text-align:center">100</td>
+<td style="text-align:center">全角英文数字与标点</td>
+</tr>
+</tbody>
+</table></div>
+<p>此外，还可以使用<code>--symbols</code>参数来直接指定要添加的字，如下则演示生成一个只包含“一二三四五”五个汉字的字体：</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-powershell"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="lv_font_conv --bpp 4 --size 20 -o font_harmony_sans_20.c --format lvgl --no-kerning --no-prefilter --font HarmonyOS_Sans_SC_Regular.ttf --symbols 一二三四五
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="n">lv_font_conv</span> <span class="p">-</span><span class="n">-bpp</span> <span class="n">4</span> <span class="p">-</span><span class="n">-size</span> <span class="n">20</span> <span class="n">-o</span> <span class="n">font_harmony_sans_20</span><span class="p">.</span><span class="n">c</span> <span class="p">-</span><span class="n">-format</span> <span class="n">lvgl</span> <span class="p">-</span><span class="n">-no-kerning</span> <span class="p">-</span><span class="n">-no-prefilter</span> <span class="p">-</span><span class="n">-font</span> <span class="n">HarmonyOS_Sans_SC_Regular</span><span class="p">.</span><span class="n">ttf</span> <span class="p">-</span><span class="n">-symbols</span> <span class="n">一二三四五</span>
+</code></pre></td></tr></tbody></table></div></div></div><p>可以参考<a href="https://img.yuanze.wang/posts/lvgl-chinese-font-in-bin/standard-chinese-char-table.doc" target="_blank" rel="noopener noreffer">此文件</a>以获得标准一级与二级汉字的列表。将列表中的汉字直接添加到<code>--symbols</code>参数后即可制作只包含常用汉字的精简版字体。下文中将使用添加了标准一级二级汉字的字体作为演示。</p>
+<div class="details admonition info open">
+        <div class="details-summary admonition-title">
+            <i class="icon fas fa-info-circle fa-fw"></i>字体压缩<i class="details-icon fas fa-angle-right fa-fw"></i>
+        </div>
+        <div class="details-content">
+            <div class="admonition-content">除了以上介绍的各个可选参数之外，<code>lv_font_conv</code>还默认启用字体压缩功能，此功能用约30%的性能开销，换取了30%的空间节省。如无特殊需要，建议保持默认开启状态。</div>
+        </div>
+    </div>
+<h1 id="使用esp32显示字体" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E4%BD%BF%E7%94%A8esp32%E6%98%BE%E7%A4%BA%E5%AD%97%E4%BD%93" class="header-mark"></a>使用ESP32显示字体</h1>
+<p>上面得到的<code>.c</code>格式字体，可以直接加入工程中，编译并跟随可执行文件一同烧入。同时，<code>.c</code>格式的字体，可以视为一个没有入口函数的源文件。因此，只需要用合适的方式编译它，即可生成二进制格式的文件以供烧入Flash。</p>
+<p>下文将基于ESP32与ESP-IDF介绍如何将<code>.c</code>格式的字体编译为二进制文件，通过工具直接烧录进ESP32的Flash中。</p>
+<h2 id="对源文件的处理" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E5%AF%B9%E6%BA%90%E6%96%87%E4%BB%B6%E7%9A%84%E5%A4%84%E7%90%86" class="header-mark"></a>对源文件的处理</h2>
+<p>将字体文件<strong>复制</strong>到配置好<code>lvgl</code>的工程根目录下（后续还需要用到原文件），此处以<code>font_harmony_sans_20.c</code>文件作为演示。下文所提到的工程均基于<a href="https://yuanze.wang/posts/lvgl-on-esp32s3" rel="">向ESP32-S3移植LVGL</a>一文中提到的工程。</p>
+<p>由于编译需要使用到<code>lvgl</code>的头文件，因此请确保工程目录下的<code>components\lvgl\src</code>目录中包含<code>lvgl.h</code>头文件。若您的工程路径与示例不同，请自行修改下述指令中的路径。</p>
+<p>使用编辑器打开<code>font_harmony_sans_20.c</code>文件，可以看到文件由数个部分组成，它们分别是：</p>
+<ul>
+<li>文件开始处的宏与头文件引用</li>
+<li>BITMAPS （<code>glyph_bitmap</code>，保存字符的点阵信息）</li>
+<li>GLYPH DESCRIPTION （<code>glyph_dsc</code>，用于保存字符的大小宽度等信息与在<code>glyph_bitmap</code>中的偏移）</li>
+<li>CHARACTER MAPPING （<code>cmaps</code>，用于查找字符在<code>glyph</code>中的索引）</li>
+<li>ALL CUSTOM DATA (<code>font_dsc</code>，针对<code>.c</code>格式字体的存储自定义字体信息的数据结构)</li>
+<li>PUBLIC FONT (<code>font_harmony_sans_20</code>，用户最终引用的字体结构)</li>
+</ul>
+<p>从上述描述中可以看出，各个数据结构的引用关系是从下而上的。其中，占据最大空间的是<code>glyph_bitmap</code>与<code>glyph_dsc</code>。若字体中的字符不连续，则<code>cmaps</code>还将包含对额外数组的引用以存储字符的偏移。与此同时，<code>font_dsc</code>与<code>font_harmony_sans_20</code>结构中也包含对其余结构的引用。</p>
+<p>由于ESP32的MMU映射无法指定地址，因此凡是需要在链接中动态指定地址（即包含对其他数据结构的引用）的，都必须放入源文件中而不能静态编译为二进制文件烧录进Flash。所以，最优的解决方案是将<code>glyph_bitmap</code>与<code>glyph</code>两个没有引用其它数据结构的数据结构编译为二进制文件并烧入Flash，而保持其他数据结构存放在源文件中，在链接时动态指定地址。</p>
+<p>对<code>font_harmony_sans_20.c</code>，删除<code>glyph_bitmap</code>定义前的所有代码，只保留<code>#include "lvgl.h"</code>这一句代码。然后，删除除了<code>glyph_bitmap</code>与<code>glyph_dsc</code>之外的所有代码。修改后的源文件看起来像这样：</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-c"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="#include &quot;lvgl.h&quot;
+static LV_ATTRIBUTE_LARGE_CONST const uint8_t glyph_bitmap[] = {
+    ......
+};
+
+static const lv_font_fmt_txt_glyph_dsc_t glyph_dsc[] = {
+    ......
+};
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-c" data-lang="c"><span class="cp">#include</span> <span class="cpf">"lvgl.h"</span><span class="cp">
+</span><span class="cp"></span><span class="k">static</span> <span class="n">LV_ATTRIBUTE_LARGE_CONST</span> <span class="k">const</span> <span class="n">uint8_t</span> <span class="n">glyph_bitmap</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="p">......</span>
+<span class="p">};</span>
+
+<span class="k">static</span> <span class="k">const</span> <span class="n">lv_font_fmt_txt_glyph_dsc_t</span> <span class="n">glyph_dsc</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="p">......</span>
+<span class="p">};</span>
+</code></pre></td></tr></tbody></table></div></div></div><h2 id="编译生成二进制文件" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E7%BC%96%E8%AF%91%E7%94%9F%E6%88%90%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%96%87%E4%BB%B6" class="header-mark"></a>编译生成二进制文件</h2>
+<p>首先，需要配置ESP-IDF的编译环境以使用编译器。如何安装并配置ESP-IDF，请参考<a href="https://yuanze.wang/posts/esp-idf-vscode-tutorial/" rel="">基于VSCode搭建ESP-IDF开发环境</a>一文，此处将按照文中的配置方法演示。</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-powershell"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="idf32
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="n">idf32</span>
+</code></pre></td></tr></tbody></table></div></div></div><h3 id="编译" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E7%BC%96%E8%AF%91" class="header-mark"></a>编译</h3>
+<p>然后，对刚刚修改的源文件进行编译。此处使用ESP32-S3的编译器，若使用其他型号的芯片，请自行更换对应的编译器，以保证二进制格式兼容。</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-powershell"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="xtensa-esp32s3-elf-gcc -c -D LV_CONF_SKIP -D LV_FONT_FMT_TXT_LARGE -I components\lvgl\src\ font_harmony_sans_20.c
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="nb">xtensa-esp32s3</span><span class="n">-elf-gcc</span> <span class="n">-c</span> <span class="n">-D</span> <span class="n">LV_CONF_SKIP</span> <span class="n">-D</span> <span class="n">LV_FONT_FMT_TXT_LARGE</span> <span class="n">-I</span> <span class="n">components</span><span class="p">\</span><span class="n">lvgl</span><span class="p">\</span><span class="n">src</span><span class="p">\</span> <span class="n">font_harmony_sans_20</span><span class="p">.</span><span class="n">c</span>
+</code></pre></td></tr></tbody></table></div></div></div><p>上述指令中，<code>-c</code>参数表示跳过连接部分，只进行编译操作。若不使用此参数，gcc会默认对可执行文件进行链接，但源文件中没有入口函数，因此会导致失败。</p>
+<p><code>-D</code>参数用于添加全局宏定义。<code>LV_CONF_SKIP</code>表示跳过lvgl的配置文件，<code>LV_FONT_FMT_TXT_LARGE</code>表示这个字体中会含有很多字符，lvgl存储字符的数据结构会因此发生改变。</p>
+<p><code>-I</code>参数表示添加头文件查找目录。该目录应该包含<code>lvgl.h</code>头文件。</p>
+<h3 id="链接" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E9%93%BE%E6%8E%A5" class="header-mark"></a>链接</h3>
+<p>上述操作会生成<code>font_harmony_sans_20.o</code>文件，该文件需要进行链接才可以生成最终的二进制格式文件。</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-powershell"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="xtensa-esp32s3-elf-ld -T rodata_gen_bin.ld .\font_harmony_sans_20.o -o font_harmony_sans_20.out
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="nb">xtensa-esp32s3</span><span class="n">-elf-ld</span> <span class="n">-T</span> <span class="n">rodata_gen_bin</span><span class="p">.</span><span class="n">ld</span> <span class="p">.\</span><span class="n">font_harmony_sans_20</span><span class="p">.</span><span class="n">o</span> <span class="n">-o</span> <span class="n">font_harmony_sans_20</span><span class="p">.</span><span class="n">out</span>
+</code></pre></td></tr></tbody></table></div></div></div><p><code>-T</code>参数用于指定一个链接器脚本。<code>rodata_gen_bin.ld</code>文件的内容如下，请复制并保存为对应的文件。该文件的作用主要是将<code>.rodata</code>段放入地址开头<code>0x0</code>的存储区域中。</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-fallback"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="SECTIONS {
+    . = 0x0;
+    .text : {
+        *(.rodata)
+    } = 0
+}
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-fallback" data-lang="fallback">SECTIONS {
+    . = 0x0;
+    .text : {
+        *(.rodata)
+    } = 0
+}
+</code></pre></td></tr></tbody></table></div></div></div><p>链接过程中会产生警告，这是因为可执行文件没有入口函数导致的，无视即可。</p>
+<h3 id="生成bin文件" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E7%94%9F%E6%88%90bin%E6%96%87%E4%BB%B6" class="header-mark"></a>生成bin文件</h3>
+<p>上述操作会生成<code>font_harmony_sans_20.out</code>可执行文件，该文件内除了所需要的所有数据还包含了一些符号表等不需要的数据，接下来需要将它转换成不含任何符号信息的<code>.bin</code>格式。</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-powershell"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="xtensa-esp32s3-elf-objcopy --output-target elf-xtensa-le -O binary -S font_harmony_sans_20.out font_harmony_sans_20.bin
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="nb">xtensa-esp32s3</span><span class="n">-elf-objcopy</span> <span class="p">-</span><span class="n">-output-target</span> <span class="nb">elf-xtensa</span><span class="o">-le</span> <span class="n">-O</span> <span class="n">binary</span> <span class="n">-S</span> <span class="n">font_harmony_sans_20</span><span class="p">.</span><span class="n">out</span> <span class="n">font_harmony_sans_20</span><span class="p">.</span><span class="n">bin</span>
+</code></pre></td></tr></tbody></table></div></div></div><p>其中，<code>--output-target</code>参数用于指定目标架构，<code>elf-xtensa-le</code>代表<code>xtensa</code>架构的小端目标。</p>
+<p><code>-O</code>参数用于指定输出格式，<code>binary</code>即<code>.bin</code>格式。</p>
+<p><code>-S</code>参数用于指定输出文件（<code>.bin</code>文件）不含任何符号信息。</p>
+<p>执行完上述指令后，便获得了<code>font_harmony_sans_20.bin</code>文件。</p>
+<h3 id="查看文件内偏移" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E6%9F%A5%E7%9C%8B%E6%96%87%E4%BB%B6%E5%86%85%E5%81%8F%E7%A7%BB" class="header-mark"></a>查看文件内偏移</h3>
+<p>最后，还需要获取该文件内两个数据结构对应的偏移，方便在用户程序中调用。</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-powershell"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="xtensa-esp32s3-elf-objdump -t font_harmony_sans_20.out
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="nb">xtensa-esp32s3</span><span class="n">-elf-objdump</span> <span class="n">-t</span> <span class="n">font_harmony_sans_20</span><span class="p">.</span><span class="n">out</span>
+</code></pre></td></tr></tbody></table></div></div></div><p>执行上述指令后，会得到一个类似于这样的打印信息：</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-fallback"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="font_harmony_sans_20.out:     file format elf32-xtensa-le
+
+SYMBOL TABLE:
+00000000 l    d  .text  00000000 .text
+00000000 l    d  .comment       00000000 .comment
+00000000 l    d  .xtensa.info   00000000 .xtensa.info
+00000000 l    d  .xt.prop       00000000 .xt.prop
+00000000 l    df *ABS*  00000000 font_harmony_sans_20.c
+00000000 l     O .text  000e443c glyph_bitmap
+000e443c l     O .text  0001a280 glyph_dsc
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-fallback" data-lang="fallback">font_harmony_sans_20.out:     file format elf32-xtensa-le
+
+SYMBOL TABLE:
+00000000 l    d  .text  00000000 .text
+00000000 l    d  .comment       00000000 .comment
+00000000 l    d  .xtensa.info   00000000 .xtensa.info
+00000000 l    d  .xt.prop       00000000 .xt.prop
+00000000 l    df *ABS*  00000000 font_harmony_sans_20.c
+00000000 l     O .text  000e443c glyph_bitmap
+000e443c l     O .text  0001a280 glyph_dsc
+</code></pre></td></tr></tbody></table></div></div></div><p>可以看到，<code>glyph_bitmap</code>数据结构的偏移是<code>0x00000000</code>，<code>glyph_dsc</code>数据结构的偏移是<code>0x000e443c</code>。</p>
+<h2 id="将字体放入esp32的flash中" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E5%B0%86%E5%AD%97%E4%BD%93%E6%94%BE%E5%85%A5esp32%E7%9A%84flash%E4%B8%AD" class="header-mark"></a>将字体放入ESP32的Flash中</h2>
+<h3 id="烧入flash" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E7%83%A7%E5%85%A5flash" class="header-mark"></a>烧入Flash</h3>
+<p>得到<code>.bin</code>文件后，需要将其烧录入Flash中。在烧录之前，需要先更改ESP-IDF的分区表，将字体文件所在的偏移设置为一个分区。</p>
+<p>在将要使用字体的工程目录下进入<code>idf.py menuconfig</code>，进入<code>Partition Table</code> → <code>Partition Table</code>，选择<code>Custom partition table CSV</code>，保存退出。</p>
+<p>然后，在工程根目录下新建<code>partitions.csv</code>文件，填入下列内容：</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-fallback"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="#    Name    Type   SubType     Offset      Size    Flags
+# bootloader                       0x0    0x8000
+# partition_table               0x8000    0x1000
+      nvs,   data,      nvs,    0x9000,   0x6000,
+ phy_init,   data,      phy,    0xf000,   0x1000,
+  factory,    app,  factory,   0x10000, 0x1F0000,
+font_hs20,   data,         ,  0x200000,  1042108,
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-fallback" data-lang="fallback">#    Name    Type   SubType     Offset      Size    Flags
+# bootloader                       0x0    0x8000
+# partition_table               0x8000    0x1000
+      nvs,   data,      nvs,    0x9000,   0x6000,
+ phy_init,   data,      phy,    0xf000,   0x1000,
+  factory,    app,  factory,   0x10000, 0x1F0000,
+font_hs20,   data,         ,  0x200000,  1042108,
+</code></pre></td></tr></tbody></table></div></div></div><p>相比默认的分区表，此分区表新增了一个<code>font_hs20</code>分区，该分区位于Flash偏移2M处，大小为<code>1042108</code>字节（可以通过计算<code>glyph_bitmap</code>与<code>glyph_dsc</code>结构大小的和得到）。</p>
+<p>然后，便可以使用乐鑫官方提供的<a href="https://www.espressif.com/zh-hans/support/download/other-tools" target="_blank" rel="noopener noreffer">Flash Download Tool</a>将<code>.bin</code>文件烧入Flash的对应位置了。</p>
+<h2 id="显示字体" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E6%98%BE%E7%A4%BA%E5%AD%97%E4%BD%93" class="header-mark"></a>显示字体</h2>
+<p>前文中将<code>font_harmony_sans_20.c</code>文件中的<code>glyph_bitmap</code>与<code>glyph_dsc</code>两个数据结构编译成了二进制文件，现在介绍如何在用户程序中加载它们并显示。</p>
+<h3 id="修改字体源码" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E4%BF%AE%E6%94%B9%E5%AD%97%E4%BD%93%E6%BA%90%E7%A0%81" class="header-mark"></a>修改字体源码</h3>
+<p>打开未经修改的<code>font_harmony_sans_20.c</code>文件，同样删除<code>glyph_bitmap</code>定义前的所有代码，只保留<code>#include "lvgl.h"</code>这一句代码，同时删除<code>glyph_bitmap</code>与<code>glyph_dsc</code>两个结构体。这时的源文件中应该包含<code>cmaps</code> <code>font_dsc</code> <code>font_harmony_sans_20</code>三个数据结构。</p>
+<p>由于前面将<code>glyph_bitmap</code>与<code>glyph_dsc</code>两个数据结构置入了Flash中，这两个数据结构的地址将在Flash映射时动态设置。为了动态设置它们的地址，需要将代码中的<code>static const lv_font_fmt_txt_dsc_t font_dsc</code>声明中的<code>const</code>删除，并将<code>glyph_bitmap</code>与<code>glyph_dsc</code>的地址设置为<code>NULL</code>。</p>
+<p>修改完的字体文件由于内容较多，请自行前往文末下载工程查看。</p>
+<h3 id="映射flash并加载字体" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E6%98%A0%E5%B0%84flash%E5%B9%B6%E5%8A%A0%E8%BD%BD%E5%AD%97%E4%BD%93" class="header-mark"></a>映射Flash并加载字体</h3>
+<p><code>font_harmony_sans_20.c</code>文件中的<code>glyph_bitmap</code>与<code>glyph_dsc</code>的地址被设置为<code>NULL</code>，需要在使用的过程中动态为其指定地址。在<code>font_harmony_sans_20.c</code>文件末尾，添加一个函数，用于加载它们的地址：</p>
+<div class="highlight"><div class="chroma"><div class="code-header language-c"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="void lv_port_font_harmony_sans_20_load(const char *partition_label)
+{
+    /* 查找对应名称的分区 */
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, partition_label);
+    if(partition == NULL) {
+        ESP_LOGE(TAG, &quot;Can&#39;t find %s partition!&quot;, partition_label);
+        abort();
+    }
+
+    spi_flash_mmap_handle_t map_handle;
+    const void *flash_offset;
+
+    /* 将分区通过MMU映射到内存中 */
+    ESP_ERROR_CHECK(
+        esp_partition_mmap(partition, 0, partition-&gt;size, SPI_FLASH_MMAP_DATA, &amp;flash_offset, &amp;map_handle)
+    );
+
+    ESP_LOGI(TAG, &quot;mapped %s@%1p&quot;, partition-&gt;label, flash_offset);
+
+    font_dsc.glyph_bitmap            = flash_offset;
+    font_dsc.glyph_dsc               = flash_offset+0xe443c;
+}
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-c" data-lang="c"><span class="kt">void</span> <span class="nf">lv_port_font_harmony_sans_20_load</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">partition_label</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* 查找对应名称的分区 */</span>
+    <span class="k">const</span> <span class="n">esp_partition_t</span> <span class="o">*</span><span class="n">partition</span> <span class="o">=</span> <span class="n">esp_partition_find_first</span><span class="p">(</span><span class="n">ESP_PARTITION_TYPE_DATA</span><span class="p">,</span> <span class="n">ESP_PARTITION_SUBTYPE_ANY</span><span class="p">,</span> <span class="n">partition_label</span><span class="p">);</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">partition</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">ESP_LOGE</span><span class="p">(</span><span class="n">TAG</span><span class="p">,</span> <span class="s">"Can't find %s partition!"</span><span class="p">,</span> <span class="n">partition_label</span><span class="p">);</span>
+        <span class="n">abort</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="n">spi_flash_mmap_handle_t</span> <span class="n">map_handle</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">flash_offset</span><span class="p">;</span>
+
+    <span class="cm">/* 将分区通过MMU映射到内存中 */</span>
+    <span class="n">ESP_ERROR_CHECK</span><span class="p">(</span>
+        <span class="n">esp_partition_mmap</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">partition</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">,</span> <span class="n">SPI_FLASH_MMAP_DATA</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">flash_offset</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">map_handle</span><span class="p">)</span>
+    <span class="p">);</span>
+
+    <span class="n">ESP_LOGI</span><span class="p">(</span><span class="n">TAG</span><span class="p">,</span> <span class="s">"mapped %s@%1p"</span><span class="p">,</span> <span class="n">partition</span><span class="o">-&gt;</span><span class="n">label</span><span class="p">,</span> <span class="n">flash_offset</span><span class="p">);</span>
+
+    <span class="n">font_dsc</span><span class="p">.</span><span class="n">glyph_bitmap</span>            <span class="o">=</span> <span class="n">flash_offset</span><span class="p">;</span>
+    <span class="n">font_dsc</span><span class="p">.</span><span class="n">glyph_dsc</span>               <span class="o">=</span> <span class="n">flash_offset</span><span class="o">+</span><span class="mh">0xe443c</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></td></tr></tbody></table></div></div></div><p>这个函数内部使用了ESP32的内存映射函数，将指定名称的Flash分区通过MMU进行映射，并返回MMU映射的地址。该地址可以被程序直接寻址，将地址加上<a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%e6%9f%a5%e7%9c%8b%e6%96%87%e4%bb%b6%e5%86%85%e5%81%8f%e7%a7%bb" rel="">查看文件内偏移</a>中得到的偏移值赋给<code>font_dsc</code>中的<code>glyph_bitmap</code>与<code>glyph_dsc</code>即可。</p>
+<div class="details admonition note open">
+        <div class="details-summary admonition-title">
+            <i class="icon fas fa-pencil-alt fa-fw"></i>工程配置注意事项<i class="details-icon fas fa-angle-right fa-fw"></i>
+        </div>
+        <div class="details-content">
+            <div class="admonition-content"><p>由于前文中启用了<code>LV_FONT_FMT_TXT_LARGE</code>宏，因此在调用此字体的用户工程中，需要启用<code>Enable it if you have fonts with a lot of characters.</code>设置项，来保证二进制格式兼容。与此同时，还需要在工程配置中打开<code>Sets support for compressed fonts.</code>设置项来支持压缩过的字体。</p>
+<p>上述的两个设置项均在<code>Component config</code> → <code>LVGL configuration</code> → <code>Font usage</code>中。</p>
+</div>
+        </div>
+    </div>
+<p>最后，在显示字体之前，调用<code>lv_port_font_harmony_sans_20_load()</code>函数加载字体即可。</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-c"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="lv_port_font_harmony_sans_20_load(&quot;font_hs20&quot;);
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-c" data-lang="c"><span class="n">lv_port_font_harmony_sans_20_load</span><span class="p">(</span><span class="s">"font_hs20"</span><span class="p">);</span>
+</code></pre></td></tr></tbody></table></div></div></div><h3 id="显示效果" class="headerLink"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#%E6%98%BE%E7%A4%BA%E6%95%88%E6%9E%9C" class="header-mark"></a>显示效果</h3>
+<p>使用如下代码，显示一段较长的文字，用来测试显示效果：</p>
+<div class="highlight"><div class="chroma open"><div class="code-header language-c"><span class="code-title"><i class="arrow fas fa-chevron-right fa-fw"></i></span><span class="ellipses"><i class="fas fa-ellipsis-h fa-fw"></i></span><span class="copy" data-clipboard-text="void lv_example_label(void)
+{
+    lv_obj_t *label = lv_label_create(lv_scr_act());
+    lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(label, 320);
+    lv_obj_set_style_text_font(label, &amp;font_harmony_sans_20, 0);
+    lv_label_set_text(label, &quot;ESP32-S3 是一款集成 2.4 GHz Wi-Fi 和 Bluetooth 5 (LE) 的 MCU 芯片，支持远距离模式 (Long Range)。 ESP32-S3 搭载 Xtensa® 32 位 LX7 双核处理器，主频高达 240 MHz，内置 512 KB SRAM (TCM)，具有 45 个可编程 GPIO 管脚和丰富的通信接口。ESP32-S3 支持更大容量的高速 Octal SPI flash 和片外 RAM，支持用户配置数据缓存与指令缓存。ESP32-S3 集成 2.4 GHz Wi-Fi (802.11 b/g/n)，支持 40 MHz 带宽；其低功耗蓝牙子系统支持 Bluetooth 5 (LE) 和 Bluetooth Mesh，可通过 Coded PHY 与广播扩展实现远距离通信。它还支持 2 Mbps PHY，用于提高传输速度和数据吞吐量。ESP32-S3 的 Wi-Fi 和 Bluetooth LE 射频性能优越，在高温下也能稳定工作。&quot;);
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+}
+" title="复制到剪贴板"><i class="far fa-copy fa-fw"></i></span></div><div class="table-wrapper"><table><tbody><tr><td><pre class="chroma"><code class="language-c" data-lang="c"><span class="kt">void</span> <span class="nf">lv_example_label</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">lv_obj_t</span> <span class="o">*</span><span class="n">label</span> <span class="o">=</span> <span class="n">lv_label_create</span><span class="p">(</span><span class="n">lv_scr_act</span><span class="p">());</span>
+    <span class="n">lv_label_set_long_mode</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">LV_LABEL_LONG_WRAP</span><span class="p">);</span>
+    <span class="n">lv_obj_set_width</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="mi">320</span><span class="p">);</span>
+    <span class="n">lv_obj_set_style_text_font</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">font_harmony_sans_20</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+    <span class="n">lv_label_set_text</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="s">"ESP32-S3 是一款集成 2.4 GHz Wi-Fi 和 Bluetooth 5 (LE) 的 MCU 芯片，支持远距离模式 (Long Range)。 ESP32-S3 搭载 Xtensa® 32 位 LX7 双核处理器，主频高达 240 MHz，内置 512 KB SRAM (TCM)，具有 45 个可编程 GPIO 管脚和丰富的通信接口。ESP32-S3 支持更大容量的高速 Octal SPI flash 和片外 RAM，支持用户配置数据缓存与指令缓存。ESP32-S3 集成 2.4 GHz Wi-Fi (802.11 b/g/n)，支持 40 MHz 带宽；其低功耗蓝牙子系统支持 Bluetooth 5 (LE) 和 Bluetooth Mesh，可通过 Coded PHY 与广播扩展实现远距离通信。它还支持 2 Mbps PHY，用于提高传输速度和数据吞吐量。ESP32-S3 的 Wi-Fi 和 Bluetooth LE 射频性能优越，在高温下也能稳定工作。"</span><span class="p">);</span>
+    <span class="n">lv_obj_align</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">LV_ALIGN_CENTER</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></td></tr></tbody></table></div></div></div><p></p><figure><a class="lightgallery" href="https://img.yuanze.wang/posts/lvgl-chinese-font-in-bin/esp32s3-lvgl-font-demo.jpg" title="https://img.yuanze.wang/posts/lvgl-chinese-font-in-bin/esp32s3-lvgl-font-demo.jpg" data-thumbnail="https://img.yuanze.wang/posts/lvgl-chinese-font-in-bin/esp32s3-lvgl-font-demo.jpg" data-sub-html="&lt;h2&gt;字体显示效果&lt;/h2&gt;">
+        <img class="lazyload" src="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/loading.min.svg" data-src="https://img.yuanze.wang/posts/lvgl-chinese-font-in-bin/esp32s3-lvgl-font-demo.jpg" data-srcset="https://img.yuanze.wang/posts/lvgl-chinese-font-in-bin/esp32s3-lvgl-font-demo.jpg, https://img.yuanze.wang/posts/lvgl-chinese-font-in-bin/esp32s3-lvgl-font-demo.jpg 1.5x, https://img.yuanze.wang/posts/lvgl-chinese-font-in-bin/esp32s3-lvgl-font-demo.jpg 2x" data-sizes="auto" alt="https://img.yuanze.wang/posts/lvgl-chinese-font-in-bin/esp32s3-lvgl-font-demo.jpg">
+    </a><figcaption class="image-caption">字体显示效果</figcaption>
+    </figure><p></p>
+<p>文中使用的例程可以 <i class="fas fa-file-archive"></i>&nbsp;<a href="https://img.yuanze.wang/posts/lvgl-chinese-font-in-bin/esp32s3-8080lcd-fontdemo.zip" target="_blank" rel="noopener noreffer">在此</a>下载，使用的字体文件可以 <i class="fas fa-file-archive"></i>&nbsp;<a href="https://img.yuanze.wang/posts/lvgl-chinese-font-in-bin/font_harmony_sans_20_lv1_lv2.bin" target="_blank" rel="noopener noreffer">在此</a>下载。</p></div><div class="post-footer" id="post-footer">
+    <div class="post-info">
+        <div class="post-info-line">
+            <div class="post-info-mod">
+                <span>更新于 2022年01月23日</span>
+            </div>
+            <div class="post-info-license"><span>本文采用<a rel="license external nofollow noopener noreffer" href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank">CC BY-NC-SA 4.0</a>协议</span></div>
+        </div>
+        <div class="post-info-line">
+            <div class="post-info-md"></div>
+            <div class="post-info-share">
+                <span></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="post-info-more">
+        <section class="post-tags"><i class="fas fa-tags fa-fw"></i>&nbsp;<a href="https://yuanze.wang/tags/esp32/">ESP32</a>,&nbsp;<a href="https://yuanze.wang/tags/lvgl/">LVGL</a></section>
+        <section>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">返回</a></span>&nbsp;|&nbsp;<span><a href="https://yuanze.wang/">主页</a></span>
+        </section>
+    </div>
+
+    <div class="post-nav"><a href="https://yuanze.wang/posts/lvgl-on-esp32s3/" class="prev" rel="prev" title="向ESP32-S3移植LVGL并测试性能"><i class="fas fa-angle-left fa-fw"></i>向ESP32-S3移植LVGL并测试性能</a>
+            <a href="https://yuanze.wang/posts/esp32-unzip-gzip-http-response/" class="next" rel="next" title="使用ESP32解压gzip压缩的HTTP响应">使用ESP32解压gzip压缩的HTTP响应<i class="fas fa-angle-right fa-fw"></i></a></div>
+</div>
+</article></div>
+            </main><footer class="footer">
+        <div class="footer-container"><div class="footer-line"><i class="far fa-copyright fa-fw"></i><span itemprop="copyrightYear">2017 - 2024</span><span class="author" itemprop="copyrightHolder">&nbsp;远处有泽细细说 保留所有权利</span></div>
+
+            <div class="footer-line"><span class="icp"><a href="https://beian.miit.gov.cn/">鲁ICP备19013068号</a> | <img src="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/gongan.png" class="gongan-logo" alt="公安备案图标"><a target="_blank" href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=32010202011098">苏公网安备32010202011098号</a></span></div>
+
+        </div>
+    </footer></div>
+
+        <div id="fixed-buttons" class="animated faster fadeOut" style="display: none;"><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#" id="back-to-top" class="fixed-button" title="回到顶部">
+                <i class="fas fa-arrow-up fa-fw"></i>
+            </a><a href="https://yuanze.wang/posts/lvgl-chinese-font-in-bin/#" id="view-comments" class="fixed-button" title="查看评论">
+                <i class="fas fa-comment fa-fw"></i>
+            </a>
+        </div><link rel="stylesheet" href="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/lightgallery.min.css"><script type="text/javascript" src="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/smooth-scroll.min.js.下载"></script><script type="text/javascript" src="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/autocomplete.min.js.下载"></script><script type="text/javascript" src="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/algoliasearch-lite.umd.min.js.下载"></script><script type="text/javascript" src="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/lazysizes.min.js.下载"></script><script type="text/javascript" src="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/lightgallery.min.js.下载"></script><script type="text/javascript" src="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/lg-thumbnail.min.js.下载"></script><script type="text/javascript" src="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/lg-zoom.min.js.下载"></script><script type="text/javascript" src="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/clipboard.min.js.下载"></script><script type="text/javascript">window.config={"code":{"copyTitle":"复制到剪贴板","maxShownLines":10},"comment":{},"lightGallery":{"actualSize":false,"exThumbImage":"data-thumbnail","hideBarsDelay":2000,"selector":".lightgallery","speed":400,"thumbContHeight":80,"thumbWidth":80,"thumbnail":true},"search":{"algoliaAppID":"NQWHSN6T0U","algoliaIndex":"hugo-blog","algoliaSearchKey":"cdd4a6019409ac2fd3330047759fb6fa","highlightTag":"em","maxResultLength":10,"noResultsFound":"没有找到结果","snippetLength":50,"type":"algolia"}};</script><script type="text/javascript" src="./将LVGL的中文字体编译为文件写入Flash中并读取 - 远处有泽细细说_files/theme.min.js.下载"></script><script>
+            var _hmt = _hmt || [];
+            (function() {
+              var hm = document.createElement("script");
+              hm.src = "https://hm.baidu.com/hm.js?19040d482fff7eeffed718dcdbe8be8f";
+              var s = document.getElementsByTagName("script")[0]; 
+              s.parentNode.insertBefore(hm, s);
+            })();
+        </script>
+
+</body></html>

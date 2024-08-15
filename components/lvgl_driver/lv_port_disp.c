@@ -4,6 +4,7 @@
 #define TAG "disp_driver"
 
 static lv_disp_draw_buf_t disp_buf;
+static esp_lcd_panel_handle_t panel_handle;
 
 static bool example_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
@@ -27,11 +28,7 @@ lv_disp_drv_t disp_drv;      // contains callback functions
 lv_color_t *buf1[DISP_BUF_SIZE];
 lv_color_t *buf2[DISP_BUF_SIZE];
 
-void lv_port_disp_init(void){
-    //////8080串口屏初始化
-
-    lv_disp_draw_buf_init(&disp_buf, buf1, buf2, DISP_BUF_SIZE);
-
+void disp_8080_init(void){
     ESP_LOGI(TAG, "Turn off LCD backlight");
     gpio_config_t bk_gpio_config = {
         .mode = GPIO_MODE_OUTPUT,
@@ -78,7 +75,7 @@ void lv_port_disp_init(void){
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &io_config, &io_handle));
 
     ESP_LOGI(TAG, "Install LCD driver of st7789");
-    esp_lcd_panel_handle_t panel_handle = NULL;
+    
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = SCREEN_PIN_NUM_RST,
         .color_space = ESP_LCD_COLOR_SPACE_RGB,
@@ -92,9 +89,19 @@ void lv_port_disp_init(void){
     esp_lcd_panel_invert_color(panel_handle, true);
     // the gap is LCD panel specific, even panels with the same driver IC, can have different gap value
     // esp_lcd_panel_set_gap(panel_handle, 0, 20);
+}
 
-    ESP_LOGI(TAG, "Turn on LCD backlight");
-    gpio_set_level(SCREEN_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL);
+//先调用disp_8080_init()初始化屏幕再注册
+void lv_port_disp_init(void){
+    //////8080串口屏初始化
+    //初始化显存
+    lv_disp_draw_buf_init(&disp_buf, buf1, buf2, DISP_BUF_SIZE);
+
+
+
+
+
+
     //////
     //修改为全屏双缓存
 
@@ -105,7 +112,7 @@ void lv_port_disp_init(void){
     // uint32_t size_in_px = DISP_BUF_SIZE;
     // lv_disp_draw_buf_init(&disp_buf, buf1, buf2, size_in_px);   
 
-    /////////
+    /////////将驱动注册到LVGL
     ESP_LOGI(TAG, "Register display driver to LVGL");
     lv_disp_drv_init(&disp_drv);
     disp_drv.hor_res = EXAMPLE_LCD_H_RES;
@@ -114,5 +121,15 @@ void lv_port_disp_init(void){
     disp_drv.draw_buf = &disp_buf;
     disp_drv.user_data = panel_handle;
     lv_disp_t *disp = lv_disp_drv_register(&disp_drv);
-    ////////    
+    ////////
+}
+
+void lv_port_disp_backlight(bool state){
+    if (state)
+    {
+        gpio_set_level(SCREEN_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL);
+    }
+    else{
+        gpio_set_level(SCREEN_PIN_NUM_BK_LIGHT, !EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL);
+    }
 }

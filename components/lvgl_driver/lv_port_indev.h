@@ -123,4 +123,6 @@ typedef struct {
 
 void gt911_init(uint8_t dev_addr);
 
+void lv_port_indev_init(void);
+
 #endif

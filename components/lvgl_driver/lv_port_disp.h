@@ -28,6 +28,10 @@
 
 #define DISP_BUF_SIZE LV_HOR_RES_MAX*40
 
+void disp_8080_init(void);
+
 void lv_port_disp_init(void);
+
+void lv_port_disp_backlight(bool state);
 
 #endif

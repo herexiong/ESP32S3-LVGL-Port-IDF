@@ -310,8 +310,10 @@ void gt911_init(uint8_t dev_addr) {
         ESP_LOGI(TAG, "\tY Resolution: %d", gt911_status.max_y_coord);
         gt911_status.inited = true;
     }
+}
 
-	
+//先调用gt911_init()初始化触摸再注册
+void lv_port_indev_init(void){
     lv_indev_drv_init(&indev_drv);
     indev_drv.read_cb = &touch_driver_read;
     indev_drv.type = LV_INDEV_TYPE_POINTER;

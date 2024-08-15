@@ -58,6 +58,9 @@ void gt911_set_addr(uint8_t dev_addr){
 	lv_indev_drv_register(&indev_drv);
 ```
 
+### 中文显示问题
+    [参考文章](../LVGL导入中文大字库/LVGL导入中文大字库.md)
+
 # 移植步骤
 ## 前期准备
 ESP-IDF V4.4
