@@ -2,7 +2,7 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/event_groups.h"
+#include "freertos/semphr.h"
 #include "lvgl.h"
 
 //驱动
@@ -18,21 +18,34 @@
 //python C:\esp-idf\esp-idf_v4.4\esp-idf\components\esptool_py\esptool\esptool.py --chip esp32s3 --port COM5 --baud 115200 write_flash -z 0x410000 C:\esp-idf\esp-idf_v4.4\esp-idf\components\esptool_py\esptool\PINGFANG.bin
 #include "ff.h"
 #include <dirent.h>
+//字库
+#include "lv_fonts.h"
+//playlist
+#include "sd_playlist.h"
 
-#define MAX_PLAY_FILE_NUM 20
+//////////////////MP3宏定义////////////////////
+#define USE_ADF_PLAY 1
+#define USE_ADF_TO_PLAY CONFIG_USE_ADF_PLAY
+//////////////////////////////////////////////
 
 /* LVGL Object */
 static lv_obj_t *current_music;
 static lv_obj_t *button[3];
-static lv_obj_t *img[3];
-static lv_obj_t *list_music[MAX_PLAY_FILE_NUM];
+lv_obj_t *label[3];
+char* text[3] = {LV_SYMBOL_PREV,LV_SYMBOL_PAUSE,LV_SYMBOL_NEXT};
+// static lv_obj_t *img[3];
+// static lv_obj_t *list_music[MAX_PLAY_FILE_NUM];
 
-/* Image and music resource */
-// static uint8_t filecount = 0;
-int filecount = 0;
-static char directory[MAX_PLAY_FILE_NUM][100];
-static bool play = false;
-// void *img_src[] = {SYMBOL_PREV, SYMBOL_PLAY, SYMBOL_NEXT, SYMBOL_PAUSE};
+lv_obj_t *lv_list;
+lv_obj_t *tabview;
+lv_obj_t * tab1;
+lv_obj_t *tab2;
+
+//sd_playlist
+extern SemaphoreHandle_t read_semphr;
+int current_music_num;//current music对应的索引
+extern sd_playlist_t list;
+////
 
 #define TAG "main"
  
@@ -44,117 +57,70 @@ void lv_tick_task(void *arg)
 static void lvgl_driver_init()
 {
     lv_port_disp_init();
-    gt911_init(GT911_I2C_SLAVE_ADDR);
-    sd_init();//初始化SD卡，对接文件系统在menuconfig内
+    lv_port_indev_init();
 } 
 
-static int read_content(const char *path, uint8_t *filecount)
-{
-    int ret = 0;
-    char nextpath[300];
-    struct dirent *de;
-    // *filecount = 0;
-    DIR *dir = opendir(path);
-    //递归读取整个目录
-    while (1) {
-        de = readdir(dir);
-        if (!de) {
-            break;
-        } else if (de->d_type == DT_REG) {//如果是文件
-            if (strstr(de->d_name, ".mp3") || strstr(de->d_name, ".MP3")) {
-                sprintf(directory[*filecount], "%s/%s", path, de->d_name);
-                printf("filecount = %d :%s\n", (*filecount) , directory[*filecount]);
-                if (++(*filecount) >= MAX_PLAY_FILE_NUM) {
-                    ESP_LOGE(TAG,"break %d",(*filecount));
-                    ret = -1;
-                    break;
-                }
-            }
-        } else if (de->d_type == DT_DIR) {//目录则进入递归
-            sprintf(nextpath, "%s/%s", path, de->d_name);
-            ret = read_content(nextpath, filecount);
-            if(ret == -1){
-                break;
-            }
-        }
+void change_btn_icon(bool isplaying){
+    if (isplaying)
+    {
+        lv_label_set_text(label[1],LV_SYMBOL_PLAY);
+    }else{
+        lv_label_set_text(label[1],LV_SYMBOL_PAUSE);
     }
-    closedir(dir);
-    return ret;
+    
 }
 
-// static FILE *get_file(int next_file)
-// {
-//     static FILE *file;
-//     static int file_index = 1;
+static lv_res_t audio_btn_cb(lv_obj_t *event)
+{
+    lv_obj_t* obj = lv_event_get_target(event);
+    char buffer[MAX_SONG_NAME_LEN+1];
 
-//     if (next_file != CONTROL_CURRENT) {
-//         if (next_file == CONTROL_NEXT) {
-//             // advance to the next file
-//             if (++file_index > filecount - 1) {
-//                 file_index = 0;
-//             }
-//         } else if (next_file == CONTROL_PREV) {
-//             // advance to the prev file
-//             if (--file_index < 0) {
-//                 file_index = filecount - 1;
-//             }
-//         } else if (next_file >= 0 && next_file < filecount) {
-//             file_index = next_file;
-//         }
-// #if USE_ADF_TO_PLAY
-//         if (file != NULL) {
-//             fclose(file);
-//             file = NULL;
-//         }
-// #endif
-//         ESP_LOGI(TAG, "[ * ] File index %d", file_index);
-//     }
-//     // return a handle to the current file
-//     if (file == NULL) {
-//         lv_label_set_text(current_music, strstr(directory[file_index], "d/") + 2);
-// #if USE_ADF_TO_PLAY
-//         file = fopen(directory[file_index], "r");
-//         if (!file) {
-//             ESP_LOGE(TAG, "Error opening file");
-//             return NULL;
-//         }
-// #endif
-//     }
-//     return file;
-// }
+    if (obj == button[0]) {
+        //上一首按钮
+        current_music_num = current_music_num == 0? list.playlist_count :current_music_num-1;
+        ESP_LOGI(TAG,"Previous Song");
+    } else if (obj == button[1]) {
+        buffer[0] = Audio_Control;
+        buffer[1] = '\0';
+        xQueueSendFromISR(audio_queue,buffer,0);
+        return LV_RES_OK;
+    } else if (obj == button[2]) {
+        //下一首按钮
+        current_music_num = current_music_num == list.playlist_count ? 0 :current_music_num+1;
+        ESP_LOGI(TAG,"Next Song");
+    }
+    if (list.playlist[current_music_num])
+    {
+        sprintf(buffer,"%c%s",Audio_Resource,list.playlist[current_music_num]);
+        xQueueSend(audio_queue,buffer,pdMS_TO_TICKS(10));
+        lv_label_set_text(current_music,list.show_playlist[current_music_num]);
+    }else{
+        ESP_LOGE(TAG,"list set song is not existed");
+        lv_label_set_text(current_music,"列表歌曲不存在");
+    }
+    return LV_RES_OK;
+}
 
-// static lv_res_t audio_next_prev(lv_obj_t *obj)
-// {
-//     if (obj == button[0]) {
-//         // prev song
-// #if USE_ADF_TO_PLAY
-//         ESP_LOGI(TAG, "[ * ] [Set] touch tap event");
-//         audio_pipeline_terminate(pipeline);
-//         ESP_LOGI(TAG, "[ * ] Stopped, advancing to the prev song");
-// #endif
-//         get_file(CONTROL_PREV);
-// #if USE_ADF_TO_PLAY
-//         audio_pipeline_run(pipeline);
-// #endif
-//         lv_img_set_src(img[1], img_src[3]);
-//         play = true;
-//     } else if (obj == button[1]) {
-//     } else if (obj == button[2]) {
-//         // next song
-// #if USE_ADF_TO_PLAY
-//         ESP_LOGI(TAG, "[ * ] [Set] touch tap event");
-//         audio_pipeline_terminate(pipeline);
-//         ESP_LOGI(TAG, "[ * ] Stopped, advancing to the next song");
-// #endif
-//         get_file(CONTROL_NEXT);
-// #if USE_ADF_TO_PLAY
-//         audio_pipeline_run(pipeline);
-// #endif
-//         lv_img_set_src(img[1], img_src[3]);
-//         play = true;
-//     }
-//     return LV_RES_OK;
-// }
+static void list_btn_cb(lv_obj_t *event){
+    lv_obj_t* obj = lv_event_get_target(event);
+    //不知道为啥list内的btn不掉回调函数
+    // lv_obj_t* lv_list = lv_event_get_current_target(event);
+    // const char * text = lv_list_get_btn_text(lv_list, obj);
+    int cnt = lv_obj_get_index(obj);
+    char str[100]; // 确保字符数组足够大以容纳文本
+    if (list.playlist[cnt] != NULL)
+    {
+        current_music_num = cnt;
+        sprintf(str,"%c%s",Audio_Resource,list.playlist[cnt]);
+        xQueueSend(audio_queue,str,0);
+        lv_label_set_text(current_music,list.show_playlist[cnt]);
+        lv_tabview_set_act(tabview,0,LV_ANIM_ON);
+        ESP_LOGI(TAG,"list set song name:%s",str);
+    }else{
+        ESP_LOGE(TAG,"list set song is not existed");
+        lv_label_set_text(current_music,"列表歌曲不存在");
+    }
+}
 
 //"Night theme\nAlien theme\nMaterial theme\nZen theme\nMono theme\nNemo theme"
 static void theme_change_action(lv_event_t *e)
@@ -193,63 +159,102 @@ static void theme_change_action(lv_event_t *e)
     lv_disp_set_theme(NULL, th);
 }
 
-static void littlevgl_mp3(void)
+
+
+void show_palylist(char **playlist,int playlist_count){
+    lv_obj_t * lab;
+    int i;
+    char str[MAX_SONG_NAME_LEN]; // 确保字符数组足够大以容纳文本
+    if (lv_list == NULL)
+    {
+        current_music_num = 0;
+        lv_list = lv_list_create(tab2);
+        lv_obj_set_size(lv_list, LV_HOR_RES - 20, LV_VER_RES - 85);
+
+
+    }else{
+        i = 0;
+        while ((lab = lv_obj_get_child(lv_list,i)) != NULL)
+        {
+            lv_obj_del(lab);
+            i++;
+        }
+    }
+    //刷新播放页面
+    if (playlist[current_music_num] != NULL)
+    {
+        lv_label_set_text(current_music, list.show_playlist[0]);
+        sprintf(str,"%c%s",Audio_Resource,playlist[0]);
+        xQueueSend(audio_queue,str,0);
+    }else{
+        lv_label_set_text(current_music,"播放列表为空");
+    }
+    //刷新列表页面
+    for (i = 0; i <=playlist_count && list.show_playlist[0] != NULL; i++) {
+        // btn = lv_btn_create(lv_list);
+        // lv_obj_set_width(btn, lv_pct(100));
+        // lv_obj_add_event_cb(btn, list_btn_cb , LV_EVENT_CLICKED, NULL);
+        lab = lv_label_create(lv_list);
+        // lv_label_set_text_fmt(lab, strstr(playlist[i], "d/") + 2);
+        lv_label_set_text(lab, list.show_playlist[i]);
+        lv_label_set_long_mode(lab, LV_LABEL_LONG_SCROLL);
+        lv_obj_add_flag(lab, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_event_cb(lab, list_btn_cb , LV_EVENT_CLICKED, NULL);
+        //由于中文字体里无符号，故取消图标
+        // lv_list_add_btn(lv_list, LV_SYMBOL_AUDIO, strstr(directory[i], "d/") + 2);
+        // lv_list_add_btn(lv_list, NULL, strstr(directory[i], "d/") + 2);
+    }
+    // lv_obj_add_event_cb(lv_list, list_btn_cb , LV_EVENT_PRESSED, NULL);
+    // lv_obj_set_style_text_font(lv_list, &PINGFANG, 0);
+    lv_obj_set_style_text_font(lv_list, &font_harmony_sans_20, 0);
+}
+
+static void lvgl_mp3_ui(void)
 {
-    LV_FONT_DECLARE(PINGFANG);//引入字库
+    // lv_port_font_pingfang_sans_16_load("font_pingfang16");
+    lv_port_font_harmony_sans_20_load("font_hs20");
     lv_obj_t *scr = lv_obj_create(NULL);
     lv_scr_load(scr);
 
     lv_theme_t *th = lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED), LV_THEME_DEFAULT_DARK, LV_FONT_DEFAULT);
     lv_disp_set_theme(NULL, th);
 
-    lv_obj_t *tabview = lv_tabview_create(lv_scr_act(), LV_DIR_TOP, 50);
+    tabview = lv_tabview_create(lv_scr_act(), LV_DIR_TOP, 50);
 
-    lv_obj_t *tab1 = lv_tabview_add_tab(tabview, "Audio");
-    lv_obj_t *tab2 = lv_tabview_add_tab(tabview, "List");
-    lv_obj_t *tab3 = lv_tabview_add_tab(tabview, "Settings");
+    tab1 = lv_tabview_add_tab(tabview, LV_SYMBOL_AUDIO);
+    tab2 = lv_tabview_add_tab(tabview, LV_SYMBOL_LIST);
+    lv_obj_t *tab3 = lv_tabview_add_tab(tabview, LV_SYMBOL_SETTINGS);
     lv_tabview_set_act(tabview, 0, LV_ANIM_OFF);
 
-    lv_obj_t *cont = lv_obj_create(tab1);
+    lv_obj_t * cont = lv_obj_create(tab1);
     lv_obj_set_size(cont, LV_HOR_RES - 20, LV_VER_RES - 85);
     lv_obj_center(cont);
 
-    lv_obj_t *current_music = lv_label_create(cont);
+    current_music = lv_label_create(cont);
     lv_label_set_long_mode(current_music, LV_LABEL_LONG_SCROLL);
     lv_obj_set_width(current_music, 200);
     lv_obj_align(current_music, LV_ALIGN_TOP_MID, 0, 20);
-    lv_label_set_text(current_music, strstr(directory[1], "d/") + 2);
-    lv_obj_set_style_text_font(current_music,&PINGFANG,0);// 设置风格的字体
-    // lv_obj_set_style_text_font()
+    lv_label_set_text(current_music," ");
+    // lv_obj_set_style_text_font(current_music, &PINGFANG, 0);
+    lv_obj_set_style_text_font(current_music, &font_harmony_sans_20, 0);
 
-
-    lv_obj_t *button[3];
-    lv_obj_t *label[3];
-    char* text[3] = {"prev","play","next"};
-    lv_obj_t *img[3];
+    // lv_obj_t *img[3];
     for (uint8_t i = 0; i < 3; i++) {
         button[i] = lv_btn_create(cont);
         lv_obj_set_size(button[i], 80, 50);
         label[i] = lv_label_create(button[i]);
         lv_label_set_text(label[i],text[i]);
+        lv_obj_align(button[i], LV_ALIGN_BOTTOM_LEFT, (15+80)*i, -15);
+        lv_obj_align(label[i], LV_ALIGN_CENTER, 0, 0);
         // img[i] = lv_img_create(button[i]);
         // lv_img_set_src(img[i], img_src[i]);
     }
     // lv_obj_align(button[0], LV_ALIGN_LEFT_MID, 35, 20);
-    for (uint8_t i = 0; i < 3; i++) {
-        lv_obj_align(button[i], LV_ALIGN_BOTTOM_LEFT, (15+80)*i, -15);
-        lv_obj_align(label[i], LV_ALIGN_CENTER, 0, 0);
-        lv_obj_set_style_text_font(label[i],&PINGFANG,0);// 设置风格的字体
-    }
-    // lv_obj_add_event_cb(button[0], audio_next_prev, LV_EVENT_CLICKED, NULL);
-    // lv_obj_add_event_cb(button[1], audio_control, LV_EVENT_CLICKED, NULL);
-    // lv_obj_add_event_cb(button[2], audio_next_prev, LV_EVENT_CLICKED, NULL);
 
-    lv_obj_t *list = lv_list_create(tab2);
-    lv_obj_set_size(list, LV_HOR_RES - 20, LV_VER_RES - 85);
-    for (uint8_t i = 0; i < filecount; i++) {
-        lv_list_add_btn(list, LV_SYMBOL_AUDIO, strstr(directory[i], "d/") + 2);
-    }
-    lv_obj_set_style_text_font(list,&PINGFANG,0);// 设置风格的字体
+    lv_obj_add_event_cb(button[0], audio_btn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(button[1], audio_btn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(button[2], audio_btn_cb, LV_EVENT_CLICKED, NULL);
+
 
     lv_obj_t *theme_label = lv_label_create(tab3);
     lv_label_set_text(theme_label, "Theme:");
@@ -267,10 +272,8 @@ static void littlevgl_mp3(void)
 void lv_task(void *param)
 {
     lv_init();
-    /* Initialize SCREEN TOUCH and SD */
+    //将显示和触摸注册到LVGL
     lvgl_driver_init();
-
-    read_content("/sdcard", &filecount);
 
     const esp_timer_create_args_t periodic_timer_args = {
         .callback = &lv_tick_task,
@@ -283,16 +286,20 @@ void lv_task(void *param)
     // lv_demo_music();
     // lv_demo_stress();
     // lv_demo_widgets(); 
+    //squline 移植UI
     // ui_init();
-
-    littlevgl_mp3();
-
+    //MP3 UI
+    lvgl_mp3_ui();
+    lv_port_disp_backlight(true);//在UI初始化后打开背光避免花屏
     while (1)
     {
         /* Delay 1 tick (assumes FreeRTOS tick is 10ms */
         vTaskDelay(pdMS_TO_TICKS(10));
         lv_task_handler();
-        
+        if (xSemaphoreTake(read_semphr,pdMS_TO_TICKS(10)))
+        {
+            show_palylist(list.playlist,list.playlist_count);
+        }
     }
     vTaskDelete(NULL);
 }
@@ -312,24 +319,22 @@ void print_task(void *param){
     
 }
 
-void task(void *param){
-    sd_init();
-    read_content(LV_FS_PATH, &filecount);
-    ESP_LOGE(TAG,"begin to printf list num:%d",filecount);
-    for(int i = 0; i<filecount ;i++){
-        printf("%s\n",directory[i]);
-    }
-    ESP_LOGE(TAG,"end to printf list");
-    vTaskDelete(NULL);
+static void hardware_init(void){
+    disp_8080_init();
+    gt911_init(GT911_I2C_SLAVE_ADDR);
+    sd_init();//初始化SD卡，LVGL对接文件系统在menuconfig内
 }
 
 void app_main(void)
 {
-
+    //初始化硬件
+    hardware_init();
+    //歌曲异步扫描
+    xTaskCreate(playlist_start_task,"playlist_start",16*1024,NULL,5,NULL);
+    //UI
     xTaskCreate(lv_task,"lvgl",128*1024,NULL,5,NULL);
-    // xTaskCreate(task,"test",128*1024,NULL,5,NULL);
-
-    // xTaskCreate(audio_task,"audio",32*1024,NULL,5,NULL);
+    //实现播放功能
+    xTaskCreate(audio_task,"audio",32*1024,NULL,5,NULL);
     
     // vTaskDelay(pdMS_TO_TICKS(1000));
     // xTaskCreate(print_task,"print",8*1024,NULL,5,NULL);
