@@ -16,7 +16,6 @@ typedef struct
 }sd_playlist_t;
 
 
-int read_playlist(void);
 void playlist_start_task(void *param);
 
 #endif

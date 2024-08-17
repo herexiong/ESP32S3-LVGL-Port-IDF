@@ -10,6 +10,9 @@ void audio_task(void *param);
 void message_task(void *param);
 bool is_playing(void);
 
+void esp_audio_task(void *param);
+void player_set_bar(int value);
+
 QueueHandle_t audio_queue;
 #define Audio_Control '0'
 #define Audio_Resource '1'

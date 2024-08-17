@@ -4,7 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
-
+/////////////////////////////////////////////旧的element和pipeline代码,下一版本删除
 #include "audio_element.h"
 #include "audio_pipeline.h"
 #include "audio_event_iface.h"
@@ -21,20 +21,27 @@
 #include "input_key_service.h"
 #include "periph_adc_button.h"
 #include "board.h"
-
+///////////////////////////////////////////
 #include "sdcard_list.h"
 #include "sdcard_scan.h"
 
 #include "sd.h"
 #include "dev_board.h"
+//esp-audio框架
+#include "esp_audio.h"
+#include "esp_decoder.h"
 
 static const char *TAG = "AUDIO_PLAYER";
 
+/////////////////////////////////////////////旧的element和pipeline代码,下一版本删除
 audio_pipeline_handle_t pipeline;
 audio_element_handle_t i2s_stream_writer, mp3_decoder, fatfs_stream_reader, rsp_handle;
 playlist_operator_handle_t sdcard_list_handle = NULL;
+///////////////////////////////////////////
+esp_audio_handle_t audio_player;
 
 extern void change_btn_icon(bool isplaying);
+extern void change_audio_bar(char *current_time,char *total_time,int value);
 
 static esp_err_t input_key_service_cb(periph_service_handle_t handle, periph_service_event_t *evt, void *ctx)
 {
@@ -106,6 +113,7 @@ static esp_err_t input_key_service_cb(periph_service_handle_t handle, periph_ser
     return ESP_OK;
 }
 
+//旧的element和pipeline代码,下一版本删除,用于esp的playlist组件扫描到文件的保存回调函数
 //将扫描到的URL资源保存到播放列表
 // void sdcard_url_save_cb(void *user_data, char *url)
 // {
@@ -119,16 +127,16 @@ static esp_err_t input_key_service_cb(periph_service_handle_t handle, periph_ser
 //     }
 // }
 
+// 配置 I2S 引脚
 void i2s_setPin(void){
     i2s_pin_config_t pin_config = {
         .mck_io_num = I2S_PIN_NO_CHANGE,
         .bck_io_num = AUDIO_I2S_PIN_BCK,      // BCLK
         .ws_io_num = AUDIO_I2S_PIN_WS,        // LRC
         .data_out_num = AUDIO_I2S_PIN_DATA,   // DIN
-        .data_in_num = I2S_PIN_NO_CHANGE// 无输入
+        .data_in_num = I2S_PIN_NO_CHANGE      // 无输入
         
     };
-    // 配置 I2S 引脚
     esp_err_t err = i2s_set_pin(I2S_NUM, &pin_config);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set I2S pin: %s", esp_err_to_name(err));
@@ -137,60 +145,103 @@ void i2s_setPin(void){
     }
 }
 
+char url[100+4] = {0};
+
+//用于lvgl界面和audio组件间的通讯
 void message_task(void *param){
     char message[100];
-    char url[100] = {0};
+    
     audio_queue = xQueueCreate(10,sizeof(message));
     ESP_LOGI(TAG,"queue created");
-    audio_element_state_t el_state;
+    // audio_element_state_t el_state;
+    esp_audio_state_t audio_state;
     while (1)
     {
         if (xQueueReceive(audio_queue,message,pdMS_TO_TICKS(50)))
         {
             ESP_LOGI(TAG,"message:%s",message);
             if(message[0] == Audio_Control){
-                
-                el_state = audio_element_get_state(i2s_stream_writer);
-                ESP_LOGI(TAG,"message: Audio_Control state:%d",el_state);
-                switch (el_state) {
-                    case AEL_STATE_INIT:
-                        audio_element_set_uri(fatfs_stream_reader, url);
-                        audio_pipeline_run(pipeline);
+                //旧的element和pipeline代码,下一版本删除
+                // el_state = audio_element_get_state(i2s_stream_writer);
+                // ESP_LOGI(TAG,"message: Audio_Control state:%d",el_state);
+                // switch (el_state) {
+                //     case AEL_STATE_INIT:
+                //         // audio_element_set_uri(fatfs_stream_reader, url);
+                //         // audio_pipeline_run(pipeline);
+                //         break;
+                //     case AEL_STATE_RUNNING:
+                //         // audio_pipeline_pause(pipeline);
+                //         esp_audio_pause(audio_player);
+                //         break;
+                //     case AEL_STATE_PAUSED:
+                //         // audio_pipeline_resume(pipeline);
+                //         esp_audio_resume(audio_player);
+                //         break;
+                //     case AEL_STATE_FINISHED:
+                //         // audio_element_set_uri(fatfs_stream_reader, url);
+                //         // audio_pipeline_reset_ringbuffer(pipeline);
+                //         // audio_pipeline_reset_elements(pipeline);
+                //         // audio_pipeline_change_state(pipeline, AEL_STATE_INIT);
+                //         // audio_pipeline_run(pipeline);
+                //         esp_audio_play(audio_player, AUDIO_CODEC_TYPE_DECODER, url, 0);
+                //         break;
+                //     default:
+                //         break;
+
+                esp_audio_state_get(audio_player,&audio_state);
+                ESP_LOGI(TAG,"Audio_Control state:%d",audio_state.status);
+                switch (audio_state.status) {
+                    case AUDIO_STATUS_RUNNING:
+                        esp_audio_pause(audio_player);
                         break;
-                    case AEL_STATE_RUNNING:
-                        audio_pipeline_pause(pipeline);
+                    case AUDIO_STATUS_PAUSED:
+                        esp_audio_resume(audio_player);
                         break;
-                    case AEL_STATE_PAUSED:
-                        audio_pipeline_resume(pipeline);
+                    case AUDIO_STATUS_FINISHED:
+                        esp_audio_play(audio_player, AUDIO_CODEC_TYPE_DECODER, url, 0);
                         break;
-                    case AEL_STATE_FINISHED:
-                        audio_element_set_uri(fatfs_stream_reader, url);
-                        audio_pipeline_reset_ringbuffer(pipeline);
-                        audio_pipeline_reset_elements(pipeline);
-                        audio_pipeline_change_state(pipeline, AEL_STATE_INIT);
-                        audio_pipeline_run(pipeline);
-                        break;
+                    case AUDIO_STATUS_ERROR:
+                        esp_audio_play(audio_player, AUDIO_CODEC_TYPE_DECODER, url, 0);
                     default:
                         break;
                 }
             }
             else if(message[0] == Audio_Resource){
+                sprintf(url,"file:/%s",message+1);
                 ESP_LOGI(TAG,"Audio_Resource resource:%s",url);
-                sprintf(url,"%s",message+1);
-                audio_pipeline_pause(pipeline);
-                audio_pipeline_reset_ringbuffer(pipeline);
-                audio_pipeline_reset_elements(pipeline);
-                audio_pipeline_change_state(pipeline, AEL_STATE_INIT);
-                audio_element_set_uri(fatfs_stream_reader, url);
-                audio_pipeline_run(pipeline);
+                // audio_pipeline_pause(pipeline);
+                // audio_pipeline_reset_ringbuffer(pipeline);
+                // audio_pipeline_reset_elements(pipeline);
+                // audio_pipeline_change_state(pipeline, AEL_STATE_INIT);
+                // audio_element_set_uri(fatfs_stream_reader, url);
+                // audio_pipeline_run(pipeline);'
+                // audio_termination_type_t type;
+                esp_audio_state_get(audio_player,&audio_state);
+                ESP_LOGI(TAG,"Audio_Control state:%d",audio_state.status);
+                switch (audio_state.status) {
+                    case AUDIO_STATUS_RUNNING:
+                        esp_audio_stop(audio_player,TERMINATION_TYPE_NOW);
+                        break;
+                    case AUDIO_STATUS_PAUSED:
+                        esp_audio_stop(audio_player,TERMINATION_TYPE_NOW);
+                        break;
+                    case AUDIO_STATUS_FINISHED:
+                        break;
+                    case AUDIO_STATUS_ERROR:
+                        esp_audio_stop(audio_player,TERMINATION_TYPE_NOW);
+                        break;
+                    default:
+                        break;
+                }
+                esp_audio_play(audio_player, AUDIO_CODEC_TYPE_DECODER, url, 0);
             }
         }
-        // vTaskDelay(pdMS_TO_TICKS(50));
     }
     vQueueDelete(audio_queue);
     vTaskDelete(NULL);
 }
 
+//旧的element和pipeline代码,下一版本删除
 void audio_task(void *param){
     // esp_log_level_set("*", ESP_LOG_WARN);
     // esp_log_level_set(TAG, ESP_LOG_INFO);
@@ -291,7 +342,7 @@ void audio_task(void *param){
 
     ESP_LOGI(TAG, "[5.1] Listen for all pipeline events");
     audio_pipeline_set_listener(pipeline, evt);
-
+    
     // audio_pipeline_run(pipeline);
     //用于UI和AUDIO组件间通讯
     xTaskCreate(message_task,"message",8*1024,NULL,5,NULL);
@@ -312,9 +363,9 @@ void audio_task(void *param){
                 && msg.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO) {
                 audio_element_info_t music_info = {0};
                 audio_element_getinfo(mp3_decoder, &music_info);
-                ESP_LOGI(TAG, "[ * ] Received music info from mp3 decoder, sample_rates=%d, bits=%d, ch=%d",
-                         music_info.sample_rates, music_info.bits, music_info.channels);
-                audio_element_setinfo(i2s_stream_writer, &music_info);
+                ESP_LOGI(TAG, "[ * ] Received music info from mp3 decoder, sample_rates=%d, bits=%d, ch=%d time:%f",
+                         music_info.sample_rates, music_info.bits, music_info.channels,(float)(music_info.total_bytes/music_info.bps/60));
+
                 // rsp_filter_set_src_info(rsp_handle, music_info.sample_rates, music_info.channels);
                 //根据音源文件设置解码器参数
                 i2s_stream_set_clk(i2s_stream_writer, music_info.sample_rates, music_info.bits, music_info.channels);
@@ -387,4 +438,150 @@ void audio_task(void *param){
     // periph_service_destroy(input_ser);
     // esp_periph_set_destroy(set);
     vTaskDelete(NULL);
+}
+
+int current,total,current_min_time,current_second_time,total_min_time,total_second_time;
+
+//进度条任务
+static void player_bar_task(void *param){
+    ESP_LOGE(TAG,"player_bar_task has been created");
+    char current_time_str[20];
+    char total_time_str[20];
+    while (1)
+    {
+        if (esp_audio_duration_get(audio_player, &total) == ESP_ERR_AUDIO_NO_ERROR && esp_audio_time_get(audio_player, &current) == ESP_ERR_AUDIO_NO_ERROR)
+        {
+            ESP_LOGE(TAG,"current %d,total;%d",current,total);
+            total_min_time = total/60000;
+            total_second_time = (total%60000)/1000;
+
+            current_min_time = current/60000;
+            current_second_time = (current%60000)/1000;
+            
+            // ESP_LOGE(TAG,"total:%s current:%s",total_time_str,current_time_str);
+            
+            int total_time = total_min_time*60+total_second_time;
+            int current_time = current_min_time*60+current_second_time;
+            if (total_time ==0 ||current_time == 0)
+            {
+                change_audio_bar("0:00","0:00",0);
+            }else{
+                sprintf(current_time_str,"%d:%02d",current_min_time,current_second_time);
+                sprintf(total_time_str,"%d:%02d",total_min_time,total_second_time);                
+                change_audio_bar(current_time_str,total_time_str,current_time*100/total_time);
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(900));
+    }
+    vTaskDelete(NULL);
+}
+
+//根据拖动的任务条的值设置音频播放位置
+void player_set_bar(int value){
+    int total_ms = total;
+    int target_seconds = (value * total_ms) / 100000;
+    esp_audio_state_t audio_state;
+    esp_audio_state_get(audio_player,&audio_state);
+    if (audio_state.status == AUDIO_STATUS_FINISHED)
+    {
+        esp_audio_play(audio_player, AUDIO_CODEC_TYPE_DECODER, url, 0);
+    }
+    esp_audio_seek(audio_player,target_seconds);
+    
+    ESP_LOGI(TAG,"player_set_bar seek:%d",target_seconds);
+}
+
+//esp_audio事件处理函数
+static void player_event_handler(esp_audio_state_t *state, void *ctx)
+{
+    ESP_LOGE(TAG,"player_event_handler state:%d",state->status);
+    if (audio_player == NULL) {
+        return ;
+    }
+    int duration,current_time;
+    esp_audio_music_info_t info;
+    switch (state->status) {
+        case AUDIO_STATUS_RUNNING:
+            esp_audio_music_info_get(audio_player,&info);
+            ESP_LOGI(TAG,"rate:%d bits:%d channel:%d, ", info.sample_rates,info.bits,info.channels);
+            //ToDo->在esp_audio中设置时钟
+            i2s_stream_set_clk(i2s_stream_writer, info.sample_rates, info.bits, info.channels);
+            change_btn_icon(true);
+            break;
+        case AUDIO_STATUS_PAUSED:
+            change_btn_icon(false);
+            break;
+        case AUDIO_STATUS_STOPPED:
+            ESP_LOGI(TAG,"AUDIO_STATUS_STOPPED");
+            change_btn_icon(false);
+            break;
+        case AUDIO_STATUS_FINISHED:
+            change_btn_icon(false);
+            break;
+        case AUDIO_STATUS_ERROR:
+            ESP_LOGE(TAG,"AUDIO_STATUS_ERROR");
+            esp_audio_stop(audio_player,TERMINATION_TYPE_NOW);
+            // esp_audio_play(audio_player, AUDIO_CODEC_TYPE_DECODER, url, 0);
+            break;
+        default:
+            break;
+    }
+}
+
+//使用esp_audio高封装库的音频播放任务
+void esp_audio_task(void *param){
+    // 定义配置结构体
+    esp_audio_cfg_t cfg = DEFAULT_ESP_AUDIO_CONFIG();
+    cfg.in_stream_buf_size = 10 * 1024;
+    cfg.out_stream_buf_size = 10 * 1024;
+    // cfg.resample_rate = 48000;
+    cfg.vol_handle = NULL;
+    cfg.vol_set = i2s_alc_volume_set;
+    cfg.vol_get = i2s_alc_volume_get;
+    cfg.prefer_type = ESP_AUDIO_PREFER_MEM;
+
+    // 创建音频实例
+    audio_player = esp_audio_create(&cfg);
+    if (audio_player == NULL) {
+        ESP_LOGE("AUDIO", "Failed to create audio handle");
+        return;
+    }
+
+    i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT();
+    i2s_cfg.type = AUDIO_STREAM_WRITER;
+    i2s_cfg.i2s_port = I2S_NUM;
+    i2s_cfg.i2s_config.use_apll = false;//关闭apll时钟
+    i2s_cfg.i2s_config.dma_buf_count = 3;
+    i2s_cfg.i2s_config.dma_buf_len = 300;
+    i2s_cfg.use_alc = true;//使用音量控制
+    i2s_cfg.volume = -30;//range(-64,64)
+    i2s_stream_writer = i2s_stream_init(&i2s_cfg);
+    // i2s_stream_set_clk(i2s_stream_writer, 48000, 16, 2);
+    i2s_setPin();
+
+    fatfs_stream_cfg_t fatfs_cfg = FATFS_STREAM_CFG_DEFAULT();
+    fatfs_cfg.type = AUDIO_STREAM_READER;
+    fatfs_stream_reader = fatfs_stream_init(&fatfs_cfg);
+
+    audio_decoder_t auto_decode[] = {
+        DEFAULT_ESP_MP3_DECODER_CONFIG(),
+        DEFAULT_ESP_WAV_DECODER_CONFIG(),
+        DEFAULT_ESP_AAC_DECODER_CONFIG(),
+        DEFAULT_ESP_M4A_DECODER_CONFIG(),
+        DEFAULT_ESP_TS_DECODER_CONFIG(),
+    };
+    esp_decoder_cfg_t auto_dec_cfg = DEFAULT_ESP_DECODER_CONFIG();
+    esp_audio_codec_lib_add(audio_player, AUDIO_CODEC_TYPE_DECODER, esp_decoder_init(&auto_dec_cfg, auto_decode, 5));
+
+    // 将输入流和输出流添加到esp_audio_handle_t
+    esp_audio_input_stream_add(audio_player, fatfs_stream_reader);
+    esp_audio_output_stream_add(audio_player, i2s_stream_writer);
+
+    esp_audio_callback_set(audio_player, player_event_handler, NULL);
+
+    xTaskCreate(message_task,"message",8*1024,NULL,5,NULL);
+    xTaskCreate(player_bar_task,"player_bar_task",8*1024,NULL,4,NULL);
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
 }

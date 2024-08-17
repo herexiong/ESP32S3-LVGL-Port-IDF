@@ -23,11 +23,6 @@
 //playlist
 #include "sd_playlist.h"
 
-//////////////////MP3宏定义////////////////////
-#define USE_ADF_PLAY 1
-#define USE_ADF_TO_PLAY CONFIG_USE_ADF_PLAY
-//////////////////////////////////////////////
-
 /* LVGL Object */
 static lv_obj_t *current_music;
 static lv_obj_t *button[3];
@@ -40,6 +35,10 @@ lv_obj_t *lv_list;
 lv_obj_t *tabview;
 lv_obj_t * tab1;
 lv_obj_t *tab2;
+
+lv_obj_t *current_music_bar;
+lv_obj_t *current_music_time;
+lv_obj_t *current_music_totaltime;
 
 //sd_playlist
 extern SemaphoreHandle_t read_semphr;
@@ -68,6 +67,12 @@ void change_btn_icon(bool isplaying){
         lv_label_set_text(label[1],LV_SYMBOL_PAUSE);
     }
     
+}
+
+void change_audio_bar(char *current_time,char *total_time,int value){
+    lv_label_set_text(current_music_time,current_time);
+    lv_label_set_text(current_music_totaltime,total_time);
+    lv_slider_set_value(current_music_bar,value,LV_ANIM_ON);
 }
 
 static lv_res_t audio_btn_cb(lv_obj_t *event)
@@ -159,7 +164,12 @@ static void theme_change_action(lv_event_t *e)
     lv_disp_set_theme(NULL, th);
 }
 
-
+void current_music_bar_cb(lv_obj_t *event){
+    lv_obj_t* obj = lv_event_get_target(event);
+    int value = lv_slider_get_value(obj);
+    player_set_bar(value);
+    ESP_LOGI(TAG,"slide value is %d",value);
+}
 
 void show_palylist(char **playlist,int playlist_count){
     lv_obj_t * lab;
@@ -226,7 +236,7 @@ static void lvgl_mp3_ui(void)
     lv_obj_t *tab3 = lv_tabview_add_tab(tabview, LV_SYMBOL_SETTINGS);
     lv_tabview_set_act(tabview, 0, LV_ANIM_OFF);
 
-    lv_obj_t * cont = lv_obj_create(tab1);
+    lv_obj_t *cont = lv_obj_create(tab1);
     lv_obj_set_size(cont, LV_HOR_RES - 20, LV_VER_RES - 85);
     lv_obj_center(cont);
 
@@ -238,6 +248,20 @@ static void lvgl_mp3_ui(void)
     // lv_obj_set_style_text_font(current_music, &PINGFANG, 0);
     lv_obj_set_style_text_font(current_music, &font_harmony_sans_20, 0);
 
+    current_music_bar = lv_slider_create(cont);
+    lv_obj_set_size(current_music_bar, LV_HOR_RES-20-115, 12);
+    lv_obj_align(current_music_bar, LV_ALIGN_BOTTOM_MID, 0, -90);
+    lv_slider_set_range(current_music_bar, 0, 100);
+    lv_obj_add_event_cb(current_music_bar, current_music_bar_cb, LV_EVENT_RELEASED , NULL);
+
+    current_music_time = lv_label_create(cont);
+    lv_obj_align(current_music_time, LV_ALIGN_BOTTOM_MID, -120, -87);
+    lv_label_set_text(current_music_time,"0:00");
+
+    current_music_totaltime = lv_label_create(cont);
+    lv_obj_align(current_music_totaltime, LV_ALIGN_BOTTOM_MID, 120, -87);
+    lv_label_set_text(current_music_totaltime,"0:00");
+
     // lv_obj_t *img[3];
     for (uint8_t i = 0; i < 3; i++) {
         button[i] = lv_btn_create(cont);
@@ -246,15 +270,11 @@ static void lvgl_mp3_ui(void)
         lv_label_set_text(label[i],text[i]);
         lv_obj_align(button[i], LV_ALIGN_BOTTOM_LEFT, (15+80)*i, -15);
         lv_obj_align(label[i], LV_ALIGN_CENTER, 0, 0);
+        lv_obj_add_event_cb(button[i], audio_btn_cb, LV_EVENT_CLICKED, NULL);
         // img[i] = lv_img_create(button[i]);
         // lv_img_set_src(img[i], img_src[i]);
     }
     // lv_obj_align(button[0], LV_ALIGN_LEFT_MID, 35, 20);
-
-    lv_obj_add_event_cb(button[0], audio_btn_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(button[1], audio_btn_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(button[2], audio_btn_cb, LV_EVENT_CLICKED, NULL);
-
 
     lv_obj_t *theme_label = lv_label_create(tab3);
     lv_label_set_text(theme_label, "Theme:");
@@ -313,7 +333,7 @@ void print_task_info(void) {
 void print_task(void *param){
     while (1)
     {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(5000));
         print_task_info();
     }
     
@@ -330,12 +350,14 @@ void app_main(void)
     //初始化硬件
     hardware_init();
     //歌曲异步扫描
-    xTaskCreate(playlist_start_task,"playlist_start",16*1024,NULL,5,NULL);
-    //UI
-    xTaskCreate(lv_task,"lvgl",128*1024,NULL,5,NULL);
+    xTaskCreate(playlist_start_task,"playlist_start_task",16*1024,PLAYLIST_PATH,5,NULL);
     //实现播放功能
-    xTaskCreate(audio_task,"audio",32*1024,NULL,5,NULL);
+    // xTaskCreate(audio_task,"audio",32*1024,NULL,5,NULL);
+    xTaskCreate(esp_audio_task,"esp_audio_task",32*1024,NULL,5,NULL);
+    //UI
+    xTaskCreate(lv_task,"lvgl_task",128*1024,NULL,5,NULL);
+
     
     // vTaskDelay(pdMS_TO_TICKS(1000));
-    // xTaskCreate(print_task,"print",8*1024,NULL,5,NULL);
+    // xTaskCreate(print_task,"print",4*1024,NULL,4,NULL);
 }
