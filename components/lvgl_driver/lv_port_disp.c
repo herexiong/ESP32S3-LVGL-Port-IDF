@@ -1,10 +1,15 @@
 #include "lv_port_disp.h"
 #include "dev_board.h"
+#include "esp_heap_caps.h"
 
 #define TAG "disp_driver"
 
 static lv_disp_draw_buf_t disp_buf;
 static esp_lcd_panel_handle_t panel_handle;
+//显存
+static lv_disp_drv_t disp_drv;
+static lv_color_t *buf1;
+static lv_color_t *buf2;
 
 static bool example_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
@@ -23,10 +28,6 @@ static void example_lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_
     // copy a buffer's content to a specific area of the display
     esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, color_map);
 }
-
-lv_disp_drv_t disp_drv;      // contains callback functions
-lv_color_t *buf1[DISP_BUF_SIZE];
-lv_color_t *buf2[DISP_BUF_SIZE];
 
 void disp_8080_init(void){
     ESP_LOGI(TAG, "Turn off LCD backlight");
@@ -94,23 +95,11 @@ void disp_8080_init(void){
 //先调用disp_8080_init()初始化屏幕再注册
 void lv_port_disp_init(void){
     //////8080串口屏初始化
-    //初始化显存
+    
+    //初始化显存，使用内部RAM
+    buf1 = heap_caps_malloc(DISP_BUF_SIZE * sizeof(lv_color_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+    buf2 = heap_caps_malloc(DISP_BUF_SIZE * sizeof(lv_color_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
     lv_disp_draw_buf_init(&disp_buf, buf1, buf2, DISP_BUF_SIZE);
-
-
-
-
-
-
-    //////
-    //修改为全屏双缓存
-
-    // lv_color_t *buf1 = heap_caps_malloc(DISP_BUF_SIZE * sizeof(lv_color_t), MALLOC_CAP_DMA);
-    // assert(buf1 != NULL);
-    // static lv_color_t *buf2 = NULL;
-
-    // uint32_t size_in_px = DISP_BUF_SIZE;
-    // lv_disp_draw_buf_init(&disp_buf, buf1, buf2, size_in_px);   
 
     /////////将驱动注册到LVGL
     ESP_LOGI(TAG, "Register display driver to LVGL");

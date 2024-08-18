@@ -40,6 +40,9 @@ lv_obj_t *current_music_bar;
 lv_obj_t *current_music_time;
 lv_obj_t *current_music_totaltime;
 
+lv_obj_t *volume_control_bar;
+lv_obj_t *volume_control_label;
+
 //sd_playlist
 extern SemaphoreHandle_t read_semphr;
 int current_music_num;//current music对应的索引
@@ -167,9 +170,20 @@ static void theme_change_action(lv_event_t *e)
 void current_music_bar_cb(lv_obj_t *event){
     lv_obj_t* obj = lv_event_get_target(event);
     int value = lv_slider_get_value(obj);
-    player_set_bar(value);
+    player_set_time(value);
     ESP_LOGI(TAG,"slide value is %d",value);
 }
+
+void volume_control_bar_cb(lv_obj_t *event){
+    lv_obj_t* obj = lv_event_get_target(event);
+    int value = lv_slider_get_value(obj);
+    char buffer[10];
+    sprintf(buffer,"Volume:%02d",value);
+    ESP_LOGI(TAG,"slide value is %d",value);
+    player_set_volume(value);
+    lv_label_set_text(volume_control_label,buffer);
+    
+}    
 
 void show_palylist(char **playlist,int playlist_count){
     lv_obj_t * lab;
@@ -183,15 +197,15 @@ void show_palylist(char **playlist,int playlist_count){
 
 
     }else{
-        i = 0;
-        while ((lab = lv_obj_get_child(lv_list,i)) != NULL)
+        // i = 0;
+        while ((lab = lv_obj_get_child(lv_list,0)) != NULL)
         {
             lv_obj_del(lab);
-            i++;
+            // i++;
         }
     }
     //刷新播放页面
-    if (playlist[current_music_num] != NULL)
+    if (playlist[0] != NULL)
     {
         lv_label_set_text(current_music, list.show_playlist[0]);
         sprintf(str,"%c%s",Audio_Resource,playlist[0]);
@@ -200,13 +214,14 @@ void show_palylist(char **playlist,int playlist_count){
         lv_label_set_text(current_music,"播放列表为空");
     }
     //刷新列表页面
-    for (i = 0; i <=playlist_count && list.show_playlist[0] != NULL; i++) {
+    for (i = 0; i <= playlist_count && list.show_playlist[i] != NULL; i++) {
         // btn = lv_btn_create(lv_list);
         // lv_obj_set_width(btn, lv_pct(100));
         // lv_obj_add_event_cb(btn, list_btn_cb , LV_EVENT_CLICKED, NULL);
         lab = lv_label_create(lv_list);
         // lv_label_set_text_fmt(lab, strstr(playlist[i], "d/") + 2);
         lv_label_set_text(lab, list.show_playlist[i]);
+        // ESP_LOGE(TAG,"show_palylist lv_label_set_text:%s",list.show_playlist[i]);
         lv_label_set_long_mode(lab, LV_LABEL_LONG_SCROLL);
         lv_obj_add_flag(lab, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_add_event_cb(lab, list_btn_cb , LV_EVENT_CLICKED, NULL);
@@ -215,7 +230,7 @@ void show_palylist(char **playlist,int playlist_count){
         // lv_list_add_btn(lv_list, NULL, strstr(directory[i], "d/") + 2);
     }
     // lv_obj_add_event_cb(lv_list, list_btn_cb , LV_EVENT_PRESSED, NULL);
-    // lv_obj_set_style_text_font(lv_list, &PINGFANG, 0);
+    // ESP_LOGE(TAG,"show_palylist draw playlist done! num:%d",playlist_count);
     lv_obj_set_style_text_font(lv_list, &font_harmony_sans_20, 0);
 }
 
@@ -286,7 +301,18 @@ static void lvgl_mp3_ui(void)
     lv_roller_set_visible_row_count(theme_roller, 3);
     lv_obj_add_event_cb(theme_roller, theme_change_action, LV_EVENT_VALUE_CHANGED, NULL);
 
-    ESP_LOGI("LvGL", "app_main last: %d", esp_get_free_heap_size());
+    volume_control_label = lv_label_create(tab3);
+    lv_label_set_text(volume_control_label, "Volume:20");
+    lv_obj_align(volume_control_label, LV_ALIGN_TOP_LEFT, 0, 130);
+
+    volume_control_bar = lv_slider_create(tab3);
+    lv_obj_set_size(volume_control_bar, 170, 12);
+    lv_obj_align(volume_control_bar, LV_ALIGN_TOP_LEFT, 100, 132);
+    lv_slider_set_range(volume_control_bar, 0 , 100);
+    lv_slider_set_value(volume_control_bar,20,LV_ANIM_OFF);
+    lv_obj_add_event_cb(volume_control_bar, volume_control_bar_cb, LV_EVENT_RELEASED , NULL);
+
+    ESP_LOGI("LVGL", "app_main last: %d", esp_get_free_heap_size());
 }
 
 void lv_task(void *param)
@@ -316,7 +342,7 @@ void lv_task(void *param)
         /* Delay 1 tick (assumes FreeRTOS tick is 10ms */
         vTaskDelay(pdMS_TO_TICKS(10));
         lv_task_handler();
-        if (xSemaphoreTake(read_semphr,pdMS_TO_TICKS(10)))
+        if (xSemaphoreTake(read_semphr,0))
         {
             show_palylist(list.playlist,list.playlist_count);
         }

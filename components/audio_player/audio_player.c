@@ -445,13 +445,15 @@ int current,total,current_min_time,current_second_time,total_min_time,total_seco
 //进度条任务
 static void player_bar_task(void *param){
     ESP_LOGE(TAG,"player_bar_task has been created");
+    //关掉esp_audio_duration_get查询的日志输出
+    esp_log_level_set("ESP_AUDIO_CTRL",ESP_LOG_NONE);
     char current_time_str[20];
     char total_time_str[20];
     while (1)
     {
         if (esp_audio_duration_get(audio_player, &total) == ESP_ERR_AUDIO_NO_ERROR && esp_audio_time_get(audio_player, &current) == ESP_ERR_AUDIO_NO_ERROR)
         {
-            ESP_LOGE(TAG,"current %d,total;%d",current,total);
+            // ESP_LOGE(TAG,"current %d,total;%d",current,total);
             total_min_time = total/60000;
             total_second_time = (total%60000)/1000;
 
@@ -477,7 +479,7 @@ static void player_bar_task(void *param){
 }
 
 //根据拖动的任务条的值设置音频播放位置
-void player_set_bar(int value){
+void player_set_time(int value){
     int total_ms = total;
     int target_seconds = (value * total_ms) / 100000;
     esp_audio_state_t audio_state;
@@ -488,7 +490,12 @@ void player_set_bar(int value){
     }
     esp_audio_seek(audio_player,target_seconds);
     
-    ESP_LOGI(TAG,"player_set_bar seek:%d",target_seconds);
+    ESP_LOGI(TAG,"player_set_time seek:%d",target_seconds);
+}
+
+//根据拖动的任务条的值设置音量
+void player_set_volume(int value){
+    esp_audio_vol_set(audio_player,value);
 }
 
 //esp_audio事件处理函数
@@ -528,6 +535,15 @@ static void player_event_handler(esp_audio_state_t *state, void *ctx)
     }
 }
 
+esp_err_t volume_set(void *hd, int vol){
+    // 用户输入的是0-100，然而alc接受的音量是range(-64，64)
+    return i2s_alc_volume_set(*(audio_element_handle_t *)hd,(vol * 128 / 100) - 64);
+}
+
+esp_err_t volume_get(void *hd, int *vol){
+    return i2s_alc_volume_get(*(audio_element_handle_t *)hd,vol);
+}
+
 //使用esp_audio高封装库的音频播放任务
 void esp_audio_task(void *param){
     // 定义配置结构体
@@ -535,9 +551,9 @@ void esp_audio_task(void *param){
     cfg.in_stream_buf_size = 10 * 1024;
     cfg.out_stream_buf_size = 10 * 1024;
     // cfg.resample_rate = 48000;
-    cfg.vol_handle = NULL;
-    cfg.vol_set = i2s_alc_volume_set;
-    cfg.vol_get = i2s_alc_volume_get;
+    cfg.vol_handle = &i2s_stream_writer;
+    cfg.vol_set = volume_set;
+    cfg.vol_get = volume_get;
     cfg.prefer_type = ESP_AUDIO_PREFER_MEM;
 
     // 创建音频实例
@@ -554,7 +570,6 @@ void esp_audio_task(void *param){
     i2s_cfg.i2s_config.dma_buf_count = 3;
     i2s_cfg.i2s_config.dma_buf_len = 300;
     i2s_cfg.use_alc = true;//使用音量控制
-    i2s_cfg.volume = -30;//range(-64,64)
     i2s_stream_writer = i2s_stream_init(&i2s_cfg);
     // i2s_stream_set_clk(i2s_stream_writer, 48000, 16, 2);
     i2s_setPin();
@@ -576,6 +591,8 @@ void esp_audio_task(void *param){
     // 将输入流和输出流添加到esp_audio_handle_t
     esp_audio_input_stream_add(audio_player, fatfs_stream_reader);
     esp_audio_output_stream_add(audio_player, i2s_stream_writer);
+    //设置初始音量为20
+    esp_audio_vol_set(audio_player,20);
 
     esp_audio_callback_set(audio_player, player_event_handler, NULL);
 

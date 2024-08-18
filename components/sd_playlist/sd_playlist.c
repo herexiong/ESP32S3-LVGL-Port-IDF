@@ -27,7 +27,7 @@ sd_playlist_t list = {
 	.show_playlist = {0}
 };
 
-//从SD卡中读取音频文件
+//从SD卡中读取音频列表文件
 static bool read_playlist(char *sd_playlist_path){
 	char buffer[MAX_SONG_NAME_LEN];
 	size_t length;
@@ -138,22 +138,46 @@ void playlist_start_task(void *param){
 	xSemaphoreTake(scan_semphr,portMAX_DELAY);
 	//对比txt和扫描结果
 	int i = 0;
+	int length,len;
+	char *separator_pos;
 	for (; i <= list.scan_playlist_count; i++)
 	{
 		if (i <= list.playlist_count && list.playlist[i] != NULL)
 		{
 			if(strcmp(list.scan_playlist[i],list.playlist[i]) != 0){//此条不一致
+				//更新playlist
 				free(list.playlist[i]);
-				list.playlist[i] = (char *)malloc(sizeof(char)*(strlen(list.scan_playlist[i])+1));
+				length = strlen(list.scan_playlist[i]);
+				list.playlist[i] = (char *)malloc(sizeof(char)*(length+1));
 				// printf("%s strlen:%d\n",list.scan_playlist[i],strlen(list.scan_playlist[i]));
 				strcpy(list.playlist[i],list.scan_playlist[i]);
+				//更新show_playlist
+			separator_pos = strrchr(list.playlist[i],'/');//寻找最后一个文件分隔符的位置
+			len = length-(separator_pos - list.playlist[i])+1;//若len计算错误会导致下个循环的malloc失败
+			list.show_playlist[i] = (char *)malloc(sizeof(char)*len);
+			strcpy(list.show_playlist[i],separator_pos+1);
 				ischanged = true;
 				ESP_LOGI(TAG,"syn a song from scan result");
 			}
+		}else if (i > list.playlist_count && list.scan_playlist[i] != NULL)//有新增歌曲
+		{
+			//更新playlist
+			length = strlen(list.scan_playlist[i]);
+			list.playlist[i] = (char *)malloc(sizeof(char)*(length+1));
+			strcpy(list.playlist[i],list.scan_playlist[i]);
+			printf("%s strlen:%d\n",list.scan_playlist[i],strlen(list.scan_playlist[i]));
+				//更新show_playlist
+			separator_pos = strrchr(list.playlist[i],'/');//寻找最后一个文件分隔符的位置
+			len = length-(separator_pos - list.playlist[i])+1;//若len计算错误会导致下个循环的malloc失败
+			list.show_playlist[i] = (char *)malloc(sizeof(char)*len);
+			strcpy(list.show_playlist[i],separator_pos+1);
+			ischanged = true;
+			ESP_LOGI(TAG,"syn a song from scan result");
 		}
+		
 	}
 	//若playlist内有多余部分
-	while (i<=list.playlist_count)
+	while (i < list.playlist_count)
 	{
 		ischanged = true;
 		if(list.playlist[i] != NULL) free(list.playlist[i]);
