@@ -1,11 +1,7 @@
-file(GLOB SOURCES *.c)
-
-idf_component_register(SRCS ${SOURCES}
+idf_component_register(SRC_DIRS "."
                        INCLUDE_DIRS "."
                        PRIV_REQUIRES 
-                        driver audio_pipeline 
+                        driver 
                         audio_stream 
-                        esp_peripherals 
-                        input_key_service
                         playlist
                         main)

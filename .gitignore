@@ -5,6 +5,7 @@
 build/
 
 managed_components/
+dependencies.lock
 
 # 未完成品
 doc/lvgl架构及运行顺序

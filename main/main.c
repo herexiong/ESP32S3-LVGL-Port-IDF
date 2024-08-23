@@ -22,6 +22,8 @@
 #include "lv_fonts.h"
 //playlist
 #include "sd_playlist.h"
+//audio metadata
+#include "audio_metadata.h"
 
 /* LVGL Object */
 static lv_obj_t *current_music;
@@ -39,15 +41,21 @@ lv_obj_t *tab2;
 lv_obj_t *current_music_bar;
 lv_obj_t *current_music_time;
 lv_obj_t *current_music_totaltime;
+lv_obj_t *current_music_info[6];
 
 lv_obj_t *volume_control_bar;
 lv_obj_t *volume_control_label;
+
+lv_obj_t *lv_album_img;
+
 
 //sd_playlist
 extern SemaphoreHandle_t read_semphr;
 int current_music_num;//current music对应的索引
 extern sd_playlist_t list;
 ////
+
+SemaphoreHandle_t album_semphr;
 
 #define TAG "main"
  
@@ -102,6 +110,8 @@ static lv_res_t audio_btn_cb(lv_obj_t *event)
         sprintf(buffer,"%c%s",Audio_Resource,list.playlist[current_music_num]);
         xQueueSend(audio_queue,buffer,pdMS_TO_TICKS(10));
         lv_label_set_text(current_music,list.show_playlist[current_music_num]);
+        //扫描专辑信息
+        xTaskCreate(audio_ReadMetaData_task,"audio_ReadMetaData_task",8*1024,list.playlist[current_music_num],5,NULL);
     }else{
         ESP_LOGE(TAG,"list set song is not existed");
         lv_label_set_text(current_music,"列表歌曲不存在");
@@ -124,6 +134,8 @@ static void list_btn_cb(lv_obj_t *event){
         lv_label_set_text(current_music,list.show_playlist[cnt]);
         lv_tabview_set_act(tabview,0,LV_ANIM_ON);
         ESP_LOGI(TAG,"list set song name:%s",str);
+        //扫描专辑信息
+        xTaskCreate(audio_ReadMetaData_task,"audio_ReadMetaData_task",8*1024,list.playlist[cnt],5,NULL);
     }else{
         ESP_LOGE(TAG,"list set song is not existed");
         lv_label_set_text(current_music,"列表歌曲不存在");
@@ -241,7 +253,7 @@ static void lvgl_mp3_ui(void)
     lv_obj_t *scr = lv_obj_create(NULL);
     lv_scr_load(scr);
 
-    lv_theme_t *th = lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED), LV_THEME_DEFAULT_DARK, LV_FONT_DEFAULT);
+    lv_theme_t *th = lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED), CONFIG_LV_USE_THEME_DEFAULT, LV_FONT_DEFAULT);
     lv_disp_set_theme(NULL, th);
 
     tabview = lv_tabview_create(lv_scr_act(), LV_DIR_TOP, 50);
@@ -262,6 +274,18 @@ static void lvgl_mp3_ui(void)
     lv_label_set_text(current_music," ");
     // lv_obj_set_style_text_font(current_music, &PINGFANG, 0);
     lv_obj_set_style_text_font(current_music, &font_harmony_sans_20, 0);
+
+    // lv_album_img = lv_img_create(cont); // 在当前tab上创建一个图像对象
+    // lv_obj_align(lv_album_img, LV_ALIGN_CENTER, 0, -30);
+
+    for (uint8_t i = 0; i < 6; i++)
+    {
+        current_music_info[i] = lv_label_create(cont);
+        lv_obj_align(current_music_info[i], LV_ALIGN_TOP_LEFT, 0, 40+30*i);
+        lv_label_set_text(current_music_info[i]," ");
+        lv_obj_set_style_text_font(current_music_info[i], &font_harmony_sans_20, 0);
+    }
+    
 
     current_music_bar = lv_slider_create(cont);
     lv_obj_set_size(current_music_bar, LV_HOR_RES-20-115, 12);
@@ -320,7 +344,7 @@ void lv_task(void *param)
     lv_init();
     //将显示和触摸注册到LVGL
     lvgl_driver_init();
-
+    album_semphr = xSemaphoreCreateBinary();
     const esp_timer_create_args_t periodic_timer_args = {
         .callback = &lv_tick_task,
         .name = "periodic_gui"};
@@ -345,6 +369,35 @@ void lv_task(void *param)
         if (xSemaphoreTake(read_semphr,0))
         {
             show_palylist(list.playlist,list.playlist_count);
+        }
+        if (xSemaphoreTake(album_semphr,0))
+        {
+            if(id3v2_data.title != NULL) lv_label_set_text(current_music_info[0],id3v2_data.title);     else lv_label_set_text(current_music_info[0]," ");
+            if(id3v2_data.album != NULL) lv_label_set_text(current_music_info[1],id3v2_data.album);     else lv_label_set_text(current_music_info[1]," ");
+            if(id3v2_data.artist != NULL) lv_label_set_text(current_music_info[2],id3v2_data.artist);   else lv_label_set_text(current_music_info[2]," ");
+            if(id3v2_data.trck != NULL) lv_label_set_text(current_music_info[3],id3v2_data.trck);       else lv_label_set_text(current_music_info[3]," ");
+            if(id3v2_data.year != NULL) lv_label_set_text(current_music_info[4],id3v2_data.year);       else lv_label_set_text(current_music_info[4]," ");
+            if(id3v2_data.comment != NULL) lv_label_set_text(current_music_info[5],id3v2_data.comment); else lv_label_set_text(current_music_info[5]," ");
+            // if (img_src != NULL)
+            // {
+                // ESP_LOGI(TAG,"load img size:%d",img_size);
+                // lv_img_header_t header;
+                // lv_img_decoder_get_info(img_src, &header);
+                // ESP_LOGI(TAG,"zero:%d,w:%d,h:%d,cf:%d",header.always_zero,header.w,header.h,header.cf);
+                // lv_img_src_t src_type = lv_img_src_get_type(img_src);//解析成2了
+                // ESP_LOGI(TAG,"TYPE:%d",src_type);
+                // lv_img_dsc_t img_dsc = {
+                //     .header.always_zero = 0,
+                //     .header.w = 0,
+                //     .header.h = 0,//LV_SIZE_CONTENT
+                //     .header.cf = LV_IMG_CF_TRUE_COLOR,//LV_IMG_CF_RAW
+                //     .data = img_src,        // 指向SPIRAM中的JPG图像数据
+                //     .data_size = img_size   // 图像数据的大小
+                // };
+                // lv_img_set_src(lv_album_img, &img_dsc);
+                // lv_obj_align(lv_album_img, LV_ALIGN_CENTER, 0, 0);
+                // // lv_img_set_zoom(lv_album_img, 512);//256代表一倍 256*N
+            // }
         }
     }
     vTaskDelete(NULL);
@@ -381,7 +434,7 @@ void app_main(void)
     // xTaskCreate(audio_task,"audio",32*1024,NULL,5,NULL);
     xTaskCreate(esp_audio_task,"esp_audio_task",32*1024,NULL,5,NULL);
     //UI
-    xTaskCreate(lv_task,"lvgl_task",128*1024,NULL,5,NULL);
+    xTaskCreate(lv_task,"lvgl_task",16*1024,NULL,5,NULL);
 
     
     // vTaskDelay(pdMS_TO_TICKS(1000));
