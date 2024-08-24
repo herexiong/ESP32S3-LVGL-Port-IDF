@@ -13,6 +13,7 @@
 + 修复[lvgl_esp32_drivers](https://github.com/lvgl/lvgl_esp32_drivers/pull/238)项目中的GT911返回-1的bug
 + 使用ESP-ADF组件播放SD卡中的MP3音频文件(MAX98357模块)
 + LVGL使用中文大字库显示中文
++ LVGL UI界面的MP3播放器
 
 本项目使用的使用维可思的3.5寸320*480 TFT电容开发板  
 
@@ -21,12 +22,16 @@
 基于[乐鑫的示例](https://github.com/espressif/esp-iot-solution/tree/release/v1.0/examples/hmi/mp3_example)修改而来,在原有的基础上实现了：  
 + 使用MAX98357模块播放音频 
 + 同时增加了异步扫描SD卡并缓存到SD卡的功能,极大加速了初始速度
++ 扫描SD卡中的音频文件并形成播放列表
 + 对于去掉了原播放列表中显示的路径
 + 使用队列做组件间通讯
 + 增加中文大字库,中文歌曲也可以正常显示  
++ I2S调整音量
++ 播放进度条显示及拖动改变播放进度
++ 解析MP3文件中的元数据并显示
 
 ## 下一步开发计划(画饼)
-+ 整理代码
++ ~~整理代码~~(V1.3.1实现)
 + ~~增加音量控制~~(V1.2实现)
 + 自动播放设置
 + ~~增加音频时间~~(V1.1实现)
@@ -101,4 +106,5 @@ __引脚号__ | __用途__|__备注__
 [3. 使用SquareLine并移植到ESP32](./doc/使用Squareline并移植到ESP32/使用Squareline并移植到ESP32.md)  
 [4. LVGL使用8080驱动屏幕，驱动SD卡对接至LVGL](./doc/LVGL使用8080串口驱动屏幕，并使用SD卡/LVGL使用8080驱动屏幕，驱动SD卡对接至LVGL%20%20.md)  
 [5. 使用LVGL解码显示媒体文件](./doc/使用LVGL解码显示媒体文件/使用LVGL解码显示媒体文件.md)  
-[6. 使用ESP-ADF播放MP3音频](./doc/使用ESP-ADF播放MP3音频/音频处理.md)
+[6. 使用ESP-ADF播放MP3音频](./doc/使用ESP-ADF播放MP3音频/音频处理.md)  
+[7. MP3文件中的元数据](./doc/MP3文件中的元数据/MP3文件中的元数据.md)

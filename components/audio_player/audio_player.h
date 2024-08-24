@@ -8,7 +8,6 @@
 
 void audio_task(void *param);
 void message_task(void *param);
-bool is_playing(void);
 
 void esp_audio_task(void *param);
 void player_set_time(int value);
