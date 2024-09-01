@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "lvgl.h"
+#include "nvs_flash.h"
 
 //驱动
 #include "lv_port_disp.h"
@@ -24,6 +25,8 @@
 #include "sd_playlist.h"
 //audio metadata
 #include "audio_metadata.h"
+//dlna
+#include "audio_dlna.h"
 
 /* LVGL Object */
 static lv_obj_t *current_music;
@@ -47,6 +50,8 @@ lv_obj_t *volume_control_bar;
 lv_obj_t *volume_control_label;
 
 lv_obj_t *lv_album_img;
+
+lv_obj_t *dlna_switch;
 
 
 //sd_playlist
@@ -149,6 +154,31 @@ static void list_list_cb(lv_obj_t *event){
     }
 }
 
+//UI模式切换
+static void ui_mode_switch(uint8_t mode){
+    lv_obj_t * lab;
+    int i = 0;
+    if (mode == PLAYER_MODE)//mp3模式
+    {
+        lv_label_set_text(current_music,list.show_playlist[current_music_num]);
+        //恢复列表点击
+        while ((lab = lv_obj_get_child(lv_list,i)) != NULL )
+        {
+            lv_obj_clear_state(lab,LV_STATE_DISABLED);
+            i++;
+        }
+    }else if (mode == DLNA_MODE)//DLNA模式
+    {
+        lv_label_set_text(current_music,"DLNA");
+        //禁止列表点击
+        while ((lab = lv_obj_get_child(lv_list,i)) != NULL )
+        {
+            lv_obj_add_state(lab,LV_STATE_DISABLED);
+            i++;
+        }
+    }
+}
+
 //"Night theme\nAlien theme\nMaterial theme\nZen theme\nMono theme\nNemo theme"
 static void theme_change_action(lv_event_t *e)
 {
@@ -205,6 +235,23 @@ void volume_control_bar_cb(lv_obj_t *event){
     // ESP_LOGI(TAG,"slide value is %d",value);
 }    
 
+//DLNA开关回调函数
+void dlna_switch_cb(lv_obj_t *event){
+    lv_event_code_t code = lv_event_get_code(event);
+    if(code == LV_EVENT_VALUE_CHANGED) {
+        if(lv_obj_has_state(dlna_switch, LV_STATE_CHECKED)) {
+            printf("DLNA is ON\n");
+            ui_mode_switch(DLNA_MODE);
+            xTaskCreate(dlna_init_task,"dlna_start_task",4*1024,NULL,5,NULL);
+        } else {
+            printf("DLNA is OFF\n");
+            ui_mode_switch(PLAYER_MODE);
+            dlna_deinit();
+            player_create(PLAYER_MODE);
+        }
+    }
+    
+}
 //刷新播放列表
 void show_palylist(char **playlist,int playlist_count){
     lv_obj_t * lab;
@@ -338,6 +385,21 @@ static void lvgl_mp3_ui(void)
     lv_slider_set_value(volume_control_bar,20,LV_ANIM_OFF);
     lv_obj_add_event_cb(volume_control_bar, volume_control_bar_cb, LV_EVENT_RELEASED , NULL);
 
+    
+    lv_obj_t *dlan_contain = lv_obj_create(tab3);
+    lv_obj_set_size(dlan_contain, LV_HOR_RES - 20, 160);
+    // lv_obj_set_style_bg_color(dlan_contain, lv_color_hex(0xFF0000), LV_PART_MAIN);
+    lv_obj_align(dlan_contain, LV_ALIGN_TOP_MID, 0, 172);
+    
+    lv_obj_t *dlna_label = lv_label_create(dlan_contain);
+    lv_label_set_text(dlna_label,"DLNA");
+    lv_obj_align(dlna_label,LV_ALIGN_TOP_LEFT,10,10);
+
+    dlna_switch = lv_switch_create(dlan_contain);
+    lv_obj_set_size(dlna_switch,60,30);
+    lv_obj_align(dlna_switch, LV_ALIGN_TOP_LEFT, 210, 0);
+    lv_obj_add_event_cb(dlna_switch,dlna_switch_cb,LV_EVENT_VALUE_CHANGED,NULL);
+
     ESP_LOGI("LVGL", "app_main last: %d", esp_get_free_heap_size());
 }
 
@@ -426,6 +488,12 @@ void print_task(void *param){
 
 //初始化硬件
 static void hardware_init(void){
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
     disp_8080_init();
     gt911_init(GT911_I2C_SLAVE_ADDR);
     sd_init();//初始化SD卡，LVGL对接文件系统在menuconfig内
@@ -442,7 +510,7 @@ void app_main(void)
     //UI
     xTaskCreate(lv_task,"lvgl_task",16*1024,NULL,5,NULL);
 
-    
+    //任务调试
     // vTaskDelay(pdMS_TO_TICKS(1000));
     // xTaskCreate(print_task,"print",4*1024,NULL,4,NULL);
 }

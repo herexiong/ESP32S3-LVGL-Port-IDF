@@ -6,12 +6,15 @@
 #include "esp_log.h"
 #include "i2s_stream.h"
 #include "fatfs_stream.h"
+#include "http_stream.h"
 
 #include "sd.h"
 #include "dev_board.h"
 //esp-audio框架
 #include "esp_audio.h"
 #include "esp_decoder.h"
+
+#include "audio_dlna.h"
 
 static const char *TAG = "AUDIO_PLAYER";
 
@@ -228,48 +231,91 @@ static void player_event_handler(esp_audio_state_t *state, void *ctx)
     }
 }
 
+//player 事件处理函数
+void dlna_player_event_handler(esp_audio_state_t *state, void *ctx)
+{
+    if (audio_player == NULL) {
+        return ;
+    }
+
+    switch (state->status) {
+        case AUDIO_STATUS_RUNNING:
+            trans_state = "PLAYING";
+            break;
+        case AUDIO_STATUS_PAUSED:
+            trans_state = "PAUSED_PLAYBACK";
+            break;
+        case AUDIO_STATUS_STOPPED:
+        case AUDIO_STATUS_FINISHED:
+            trans_state = "STOPPED";
+            break;
+        default:
+            break;
+    }
+    // dlna_notify();
+}
+
 esp_err_t volume_set(void *hd, int vol){
     // 用户输入的是0-100，然而alc接受的音量是range(-64，64)
     return i2s_alc_volume_set(*(audio_element_handle_t *)hd,(vol * 128 / 100) - 64);
 }
 
 esp_err_t volume_get(void *hd, int *vol){
-    return i2s_alc_volume_get(*(audio_element_handle_t *)hd,vol);
+    // 用户接受的是0-100，然而alc输出的音量是range(-64，64)
+    esp_err_t ret = i2s_alc_volume_get(*(audio_element_handle_t *)hd,vol);
+    *vol = (*vol +64)*100/128;
+    return ret;
 }
 
-//使用esp_audio高封装库的音频播放任务
-void esp_audio_task(void *param){
+//http流 事件处理函数
+static int _http_stream_event_handle(http_stream_event_msg_t *msg)
+{
+    if (msg->event_id == HTTP_STREAM_RESOLVE_ALL_TRACKS) {
+        return ESP_OK;
+    }
+    if (msg->event_id == HTTP_STREAM_FINISH_TRACK) {
+        return http_stream_next_track(msg->el);
+    }
+    if (msg->event_id == HTTP_STREAM_FINISH_PLAYLIST) {
+        return http_stream_restart(msg->el);
+    }
+    return ESP_OK;
+}
+
+//播放切换
+void player_create(uint8_t mode){
+    if (audio_player != NULL)
+    {
+        esp_audio_stop(audio_player,TERMINATION_TYPE_NOW);
+        esp_audio_destroy(audio_player);
+        audio_player = NULL;
+    }
     // 定义配置结构体
     esp_audio_cfg_t cfg = DEFAULT_ESP_AUDIO_CONFIG();
-    cfg.in_stream_buf_size = 10 * 1024;
-    cfg.out_stream_buf_size = 10 * 1024;
+    cfg.prefer_type = ESP_AUDIO_PREFER_MEM;
     // cfg.resample_rate = 48000;
+    // cfg.cb_func = esp_audio_event_callback;//设置回调函数
     cfg.vol_handle = &i2s_stream_writer;
     cfg.vol_set = volume_set;
     cfg.vol_get = volume_get;
-    cfg.prefer_type = ESP_AUDIO_PREFER_MEM;
-
     // 创建音频实例
     audio_player = esp_audio_create(&cfg);
     if (audio_player == NULL) {
         ESP_LOGE("AUDIO", "Failed to create audio handle");
         return;
     }
-
+    // Create writers and add to esp_audio
     i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT();
     i2s_cfg.type = AUDIO_STREAM_WRITER;
+    cfg.in_stream_buf_size = 10 * 1024;
+    cfg.out_stream_buf_size = 10 * 1024;
     i2s_cfg.i2s_port = I2S_NUM;
     i2s_cfg.i2s_config.use_apll = false;//关闭apll时钟
-    i2s_cfg.i2s_config.dma_buf_count = 3;
-    i2s_cfg.i2s_config.dma_buf_len = 300;
     i2s_cfg.use_alc = true;//使用音量控制
+    i2s_cfg.stack_in_ext = true;
+    i2s_cfg.task_core = 1;
     i2s_stream_writer = i2s_stream_init(&i2s_cfg);
-    // i2s_stream_set_clk(i2s_stream_writer, 48000, 16, 2);
     i2s_setPin();
-
-    fatfs_stream_cfg_t fatfs_cfg = FATFS_STREAM_CFG_DEFAULT();
-    fatfs_cfg.type = AUDIO_STREAM_READER;
-    fatfs_stream_reader = fatfs_stream_init(&fatfs_cfg);
 
     audio_decoder_t auto_decode[] = {
         DEFAULT_ESP_MP3_DECODER_CONFIG(),
@@ -277,20 +323,53 @@ void esp_audio_task(void *param){
         DEFAULT_ESP_AAC_DECODER_CONFIG(),
         DEFAULT_ESP_M4A_DECODER_CONFIG(),
         DEFAULT_ESP_TS_DECODER_CONFIG(),
+        DEFAULT_ESP_FLAC_DECODER_CONFIG(),
     };
     esp_decoder_cfg_t auto_dec_cfg = DEFAULT_ESP_DECODER_CONFIG();
-    esp_audio_codec_lib_add(audio_player, AUDIO_CODEC_TYPE_DECODER, esp_decoder_init(&auto_dec_cfg, auto_decode, 5));
+    esp_audio_codec_lib_add(audio_player, AUDIO_CODEC_TYPE_DECODER, esp_decoder_init(&auto_dec_cfg, auto_decode, 6));
 
-    // 将输入流和输出流添加到esp_audio_handle_t
-    esp_audio_input_stream_add(audio_player, fatfs_stream_reader);
     esp_audio_output_stream_add(audio_player, i2s_stream_writer);
+    
+    if (mode == PLAYER_MODE)//普通模式
+    {
+        fatfs_stream_cfg_t fatfs_cfg = FATFS_STREAM_CFG_DEFAULT();
+        fatfs_cfg.type = AUDIO_STREAM_READER;
+        fatfs_stream_reader = fatfs_stream_init(&fatfs_cfg);
+
+        // 将输入流和输出流添加到esp_audio_handle_t
+        esp_audio_input_stream_add(audio_player, fatfs_stream_reader);
+
+        esp_audio_callback_set(audio_player, player_event_handler, NULL);
+
+        if(url != NULL) esp_audio_play(audio_player, AUDIO_CODEC_TYPE_DECODER, url, 0);
+    }else if (mode == DLNA_MODE)//DLNA模式
+    {
+
+        // Create readers and add to esp_audio
+        http_stream_cfg_t http_cfg = HTTP_STREAM_CFG_DEFAULT();
+        http_cfg.event_handle = _http_stream_event_handle;
+        http_cfg.type = AUDIO_STREAM_READER;
+        http_cfg.enable_playlist_parser = true;
+        http_cfg.task_prio = 12;
+        http_cfg.stack_in_ext = true;
+        audio_element_handle_t http_stream_reader = http_stream_init(&http_cfg);
+        
+        esp_audio_input_stream_add(audio_player, http_stream_reader);
+
+        esp_audio_callback_set(audio_player, dlna_player_event_handler, NULL);
+    }
+
     //设置初始音量为20
     esp_audio_vol_set(audio_player,20);
+}
 
-    esp_audio_callback_set(audio_player, player_event_handler, NULL);
+//使用esp_audio高封装库的音频播放任务
+void esp_audio_task(void *param){
+    player_create(1);
 
     xTaskCreate(message_task,"message",8*1024,NULL,5,NULL);
     xTaskCreate(player_bar_task,"player_bar_task",8*1024,NULL,4,NULL);
+
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
