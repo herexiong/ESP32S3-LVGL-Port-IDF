@@ -246,8 +246,7 @@ void dlna_switch_cb(lv_obj_t *event){
         } else {
             printf("DLNA is OFF\n");
             ui_mode_switch(PLAYER_MODE);
-            dlna_deinit();
-            player_create(PLAYER_MODE);
+            xTaskCreate(dlna_deinit_task,"dlna_stop_task",4*1024,NULL,5,NULL);
         }
     }
     
@@ -488,6 +487,7 @@ void print_task(void *param){
 
 //初始化硬件
 static void hardware_init(void){
+    esp_log_level_set("GT911", ESP_LOG_NONE);//取消触摸日志打印
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES) {
         ESP_ERROR_CHECK(nvs_flash_erase());

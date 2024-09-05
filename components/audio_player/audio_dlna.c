@@ -221,23 +221,22 @@ esp_periph_set_handle_t set;
 static bool netif_initialized = false;
 
 void dlna_init_task(void *param){
-    media_lib_add_default_adapter();
 
-    if (!netif_initialized) {
+    if (netif_initialized == false) {
+        media_lib_add_default_adapter();
         ESP_ERROR_CHECK(esp_netif_init());
-        ESP_LOGE(TAG, "esp_netif_init");
+
+        //创建外设集
+        esp_periph_config_t periph_cfg = DEFAULT_ESP_PERIPH_SET_CONFIG();
+        set = esp_periph_set_init(&periph_cfg);
+        //初始化wifi外设句柄
+        periph_wifi_cfg_t wifi_cfg = {
+            .wifi_config.sta.ssid = WiFi_SSID,
+            .wifi_config.sta.password = WiFi_PWD,
+        };
+        wifi_handle = periph_wifi_init(&wifi_cfg);
         netif_initialized = true;
     }
-
-    //创建外设集
-    esp_periph_config_t periph_cfg = DEFAULT_ESP_PERIPH_SET_CONFIG();
-    set = esp_periph_set_init(&periph_cfg);
-    //初始化wifi外设句柄
-    periph_wifi_cfg_t wifi_cfg = {
-        .wifi_config.sta.ssid = WiFi_SSID,
-        .wifi_config.sta.password = WiFi_PWD,
-    };
-    wifi_handle = periph_wifi_init(&wifi_cfg);
     //将外设添加到外设集中（开启外设）
     esp_periph_start(set, wifi_handle);
     periph_wifi_wait_for_connected(wifi_handle, portMAX_DELAY);
@@ -249,12 +248,17 @@ void dlna_init_task(void *param){
 	vTaskDelete(NULL);
 }
 
-void dlna_deinit(void) {
+void dlna_deinit_task(void *param){
+    esp_ssdp_send_byebye();
+
     // 停止DLNA
     if (dlna_handle) {
         esp_dlna_destroy(dlna_handle);
         dlna_handle = NULL;
     }
+
+    // 停止SSDP
+    esp_ssdp_stop();
 
     // 停止HTTP服务器
     if (httpd) {
@@ -262,13 +266,9 @@ void dlna_deinit(void) {
         httpd = NULL;
     }
 
-    // 停止SSDP
-    esp_ssdp_stop();
-    // esp_ssdp_send_byebye();
+    esp_periph_stop(wifi_handle);
 
-    // 销毁外设
-    if (set) {
-        esp_periph_set_destroy(set);
-        set = NULL;
-    }
+    player_create(PLAYER_MODE);
+
+    vTaskDelete(NULL);
 }

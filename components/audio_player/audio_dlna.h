@@ -8,6 +8,6 @@ char *trans_state;
 void dlna_notify(void);
 
 void dlna_init_task(void *param);
-void dlna_deinit(void);
+void dlna_deinit_task(void *param);
 
 #endif
